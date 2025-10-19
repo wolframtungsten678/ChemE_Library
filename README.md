@@ -5,8 +5,8 @@
 ```sh
 cd c-libs/gsl-2.8/
 sudo chown -R $USER .
-./configure && make
-sudo make install
+./configure
+make
 ```
 
 ## Build Zig

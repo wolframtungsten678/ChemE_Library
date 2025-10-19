@@ -39,6 +39,27 @@ pub fn build(b: *std.Build) void {
         .name = "ChemE_Library",
         .root_module = lib_mod,
     });
+    lib.addIncludePath(b.path("c-libs/gsl-2.8"));
+    //lib.addIncludePath(b.path("c-libs/gsl-2.8/interpolation"));
+    lib.root_module.addCSourceFiles(.{
+        .root = b.path("c-libs/gsl-2.8"),
+        .files = &.{
+            //"interpolation/accel.c",
+            //"interpolation/akima.c",
+            //"interpolation/bicubic.c",
+            //"interpolation/bilinear.c",
+            //"interpolation/cspline.c",
+            "interpolation/interp.c",
+            //"interpolation/interp2d.c",
+            //"interpolation/inline.c",
+            //"interpolation/linear.c",
+            //"interpolation/poly.c",
+            //"interpolation/spline.c",
+            //"interpolation/spline2d.c",
+            //"interpolation/steffen.c",
+        },
+    });
+    lib.root_module.link_libc = true;
 
     // This declares intent for the library to be installed into the standard
     // location when the user invokes the "install" step (the default step when
@@ -50,6 +71,26 @@ pub fn build(b: *std.Build) void {
     const lib_unit_tests = b.addTest(.{
         .root_module = lib_mod,
     });
+    lib_unit_tests.addIncludePath(b.path("c-libs/gsl-2.8"));
+    //lib_unit_tests.addIncludePath(b.path("c-libs/gsl-2.8/interpolation"));
+    //lib_unit_tests.root_module.addCSourceFiles(.{
+    //.root = b.path("c-libs/gsl-2.8"),
+    //.files = &.{
+    ////"interpolation/accel.c",
+    ////"interpolation/akima.c",
+    ////"interpolation/bicubic.c",
+    ////"interpolation/bilinear.c",
+    ////"interpolation/cspline.c",
+    //"interpolation/interp.c",
+    ////"interpolation/interp2d.c",
+    ////"interpolation/inline.c",
+    ////"interpolation/linear.c",
+    ////"interpolation/poly.c",
+    ////"interpolation/spline.c",
+    ////"interpolation/spline2d.c",
+    ////"interpolation/steffen.c",
+    //},
+    //});
 
     const run_lib_unit_tests = b.addRunArtifact(lib_unit_tests);
 
