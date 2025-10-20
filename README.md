@@ -1,14 +1,5 @@
 # ChemE_Library
 
-## Build GSL
-
-```sh
-cd c-libs/gsl-2.8/
-sudo chown -R $USER .
-./configure && make
-sudo make install
-```
-
 ## Build Zig
 
 ```sh
