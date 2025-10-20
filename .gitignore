@@ -220,8 +220,3 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
-
-
-# It's easier to just ignore everything that wasn't committed initially
-c-libs/gsl-2.8/
-
