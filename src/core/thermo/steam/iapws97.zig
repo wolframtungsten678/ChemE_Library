@@ -1,7 +1,7 @@
 const std = @import("std");
 
 const units = @import("../../units.zig");
-const water_constants = @import("../../constants.zig");
+const constants = @import("../../constants.zig");
 const steam_constants = @import("iapws97-constants.zig");
 const root_finder = @import("../../numerical-methods/root-finder.zig");
 const IjnRegionPoint = steam_constants.IjnRegionPoint;
@@ -19,7 +19,7 @@ const SpecificVolume = units.SpecificVolume;
 const JPerKg = units.JPerKg;
 const MPerSec = units.MPerSec;
 const M3PerKg = units.M3PerKg;
-const GAS_CONSTANT = water_constants.GAS_CONSTANT;
+const GAS_CONSTANT = constants.WATER_GAS_CONSTANT;
 const SteamError = error{
     AboveCriticalTemperature,
     AboveCriticalPressure,
@@ -157,7 +157,7 @@ fn powi(comptime T: type, base: T, exponent: i32) T {
 
 fn getSatPressure(temperature: K) SteamError!Pa {
     const t = temperature.value;
-    if (t > water_constants.CRITICAL_TEMPERATURE.value) return SteamError.AboveCriticalTemperature;
+    if (t > constants.WATER_CRITICAL_TEMPERATURE.value) return SteamError.AboveCriticalTemperature;
 
     const sat_temp_ratio = t / 1.0;
     const theta = sat_temp_ratio + (steam_constants.REGION_4[8].n /
@@ -179,7 +179,7 @@ fn getSatPressure(temperature: K) SteamError!Pa {
 
 fn getSatTemperature(pressure: Pa) SteamError!K {
     const p = pressure.value;
-    if (p > water_constants.CRITICAL_PRESSURE.value) return SteamError.AboveCriticalPressure;
+    if (p > constants.WATER_CRITICAL_PRESSURE.value) return SteamError.AboveCriticalPressure;
 
     const beta = std.math.pow(f64, p / 1e6, 0.25);
     const e = powi(f64, beta, 2) + steam_constants.REGION_4[2].n * beta +
@@ -198,7 +198,7 @@ fn getSatTemperature(pressure: Pa) SteamError!K {
 
 fn getBoundary34Pressure(temperature: K) SteamError!Pa {
     const t = temperature.value;
-    if (t < water_constants.CRITICAL_TEMPERATURE.value) return SteamError.BelowCriticalTemperature;
+    if (t < constants.WATER_CRITICAL_TEMPERATURE.value) return SteamError.BelowCriticalTemperature;
 
     const theta = t / 1.0;
     const pressure = (steam_constants.BOUNDARY_34[0].n +
@@ -408,7 +408,7 @@ fn vaporMethod(
     const temperature = point.temperature.convertToSiUnit().value;
     const pi = pressure / 1.0e6;
 
-    var gamma = std.math.ln(pi);
+    var gamma = @log(pi);
     var gamma_pi = 1.0 / pi;
     var gamma_pi_pi = -1.0 / std.math.pow(f64, pi, 2.0);
     var gamma_tau: f64 = 0.0;
@@ -438,8 +438,8 @@ fn vaporMethod(
     }
 
     const phase_info = blk: {
-        const above_temp = temperature > water_constants.CRITICAL_TEMPERATURE.value;
-        const above_pressure = pressure > water_constants.CRITICAL_PRESSURE.value;
+        const above_temp = temperature > constants.WATER_CRITICAL_TEMPERATURE.value;
+        const above_pressure = pressure > constants.WATER_CRITICAL_PRESSURE.value;
         if (above_temp and above_pressure) {
             break :blk PhaseKind{ .SupercriticalFluid = {} };
         } else if (above_temp and !above_pressure) {
@@ -471,7 +471,7 @@ fn region3BySpecificVolume(pt_point: PtPoint, specific_volume: f64) PtvEntry {
     const temperature = pt_point.temperature.convertToSiUnit().value;
     const tau = 647.096 / temperature;
 
-    var phi = n1 * std.math.ln(delta);
+    var phi = n1 * @log(delta);
     var phi_delta = n1 / delta;
     var phi_delta_delta = -n1 / std.math.pow(f64, delta, 2.0);
     var phi_tau: f64 = 0.0;
@@ -727,19 +727,15 @@ fn iteratePtEntrySolution(
         },
     };
 
-    const liquid_entry_result = getSteamTableEntry(liquid_query);
-    const vapor_entry_result = getSteamTableEntry(vapor_query);
+    const liquid_entry = try getSteamTableEntry(liquid_query);
+    const vapor_entry = try getSteamTableEntry(vapor_query);
 
-    if (liquid_entry_result) |liquid_entry| {
-        if (vapor_entry_result) |vapor_entry| {
-            const liquid_value = getPropValue(liquid_entry);
-            const vapor_value = getPropValue(vapor_entry);
-            if (liquid_value <= target_value and vapor_value >= target_value) {
-                const liq_frac = (vapor_value - target_value) /
-                    (vapor_value - liquid_value);
-                return interpolateEntry(liquid_entry, vapor_entry, liq_frac);
-            }
-        }
+    const liquid_value = getPropValue(liquid_entry);
+    const vapor_value = getPropValue(vapor_entry);
+    if (liquid_value <= target_value and vapor_value >= target_value) {
+        const liq_frac = (vapor_value - target_value) /
+            (vapor_value - liquid_value);
+        return interpolateEntry(liquid_entry, vapor_entry, liq_frac);
     }
 
     const ctx = struct {
@@ -761,9 +757,9 @@ fn iteratePtEntrySolution(
     const tol = 1e-5;
     if (tol < 0.0) return SteamError.FailedToConverge;
     const max_iter: usize = 50;
-    const eps = 1e-4;
+    const eps: f64 = 1e-4;
 
-    var x0 = 310.0;
+    var x0: f64 = 310.0;
     var y0 = ctx.eval(x0);
     if (!std.math.isFinite(y0)) return SteamError.FailedToConverge;
     if (@abs(y0) <= tol) {
@@ -775,8 +771,8 @@ fn iteratePtEntrySolution(
         });
     }
 
-    const x1_shift = x0 * (1.0 + eps);
-    var x1 = x1_shift + if (x1_shift >= 0.0) eps else -eps;
+    const x1_shift: f64 = x0 * (1.0 + eps);
+    var x1: f64 = x1_shift + if (x1_shift >= 0.0) eps else -eps;
     var y1 = ctx.eval(x1);
     if (!std.math.isFinite(y1)) return SteamError.FailedToConverge;
 
@@ -830,10 +826,12 @@ pub fn getSteamTableEntry(query: SteamQuery) SteamError!PtvEntry {
     return switch (query) {
         .Pt => |point| blk: {
             const region = try getRegionFromPtPoint(point);
+            std.debug.print("getRegionFromPtPoint {s}", .{@tagName(region)});
             break :blk try getEntryFromPtPoint(point, region);
         },
         .Sat => |sat_query| blk: {
             const result = try getRegionFromSatQuery(sat_query);
+            std.debug.print("getRegionFromSatQuery {s}", .{@tagName(result.region)});
             break :blk try getEntryFromPtPoint(result.pt, result.region);
         },
         .EntropyP => |data| try iteratePtEntrySolution(
@@ -855,4 +853,29 @@ pub fn getSteamTableEntry(query: SteamQuery) SteamError!PtvEntry {
             }.get,
         ),
     };
+}
+
+test "Steam Test Region 1" {
+    const query = SteamQuery{ .Pt = PtPoint{
+        .temperature = Temperature{ .k = K.init(750) },
+        .pressure = Pressure{ .pa = Pa.init(78.309563916917e3) },
+    } };
+
+    const expected = PtvEntry{
+        .temperature = Temperature{ .k = K.init(750) },
+        .pressure = Pressure{ .pa = Pa.init(78.309563916917e3) },
+        .phase_region = PhaseKind{ .SupercriticalFluid = {} },
+        .internal_energy = EnergyPerMass{ .j_per_kg = JPerKg.init(2102.069317626429e3) },
+        .enthalpy = EnergyPerMass{ .j_per_kg = JPerKg.init(2258.688445460262e3) },
+        .entropy = EnergyPerMassTemperature{ .j_per_kg_k = JPerKgK.init(4.469719056217e3) },
+        .cv = EnergyPerMassTemperature{ .j_per_kg_k = JPerKgK.init(2.71701677121e3) },
+        .cp = EnergyPerMassTemperature{ .j_per_kg_k = JPerKgK.init(6.341653594791e3) },
+        .speed_of_sound = Velocity{ .m_per_sec = MPerSec.init(760.696040876798) },
+        .specific_volume = SpecificVolume{ .m3_per_kg = M3PerKg.init(@as(f64, 1) / @as(f64, 500)) },
+    };
+
+    const actual = try getSteamTableEntry(query);
+
+    //try std.testing.expectApproxEqAbs(expected.Pt.pressure, actual.Pt.pressure, 1e-9);
+    try std.testing.expectApproxEqAbs(expected.pressure.getValue(), actual.pressure.getValue(), 1e-9);
 }

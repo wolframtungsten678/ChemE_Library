@@ -37,3 +37,29 @@ zig build
 ```sh
 pip freeze > requirements.txt
 ```
+
+## Testing
+
+### Adding a file for testing
+
+In `root.zig` add this to get your tests to be detected.
+
+```zig
+test {
+    ...
+    _ = @import("path/to/file.zig");
+    ...
+}
+```
+
+### Minimal Output
+
+```sh
+zig build test
+```
+
+### Check how many tests runs
+
+```sh
+zig build test --summary new
+```
