@@ -19,7 +19,7 @@ const SpecificVolume = units.SpecificVolume;
 const JPerKg = units.JPerKg;
 const MPerSec = units.MPerSec;
 const M3PerKg = units.M3PerKg;
-const GAS_CONSTANT = constants.WATER_GAS_CONSTANT;
+const WATER_GAS_CONSTANT = constants.WATER_GAS_CONSTANT;
 const SteamError = error{
     AboveCriticalTemperature,
     AboveCriticalPressure,
@@ -270,6 +270,8 @@ fn getRegionFromPtPoint(pt_point: PtPoint) SteamError!Iapws97Region {
         SteamError.BelowCriticalTemperature => null,
         else => return err,
     };
+    std.debug.print("sat_pressure\n{any}\n", .{sat_pressure});
+    std.debug.print("boundary_pressure\n{any}\n", .{boundary_pressure});
 
     if (t > 273.15 + 800.0) return Iapws97Region.Region5;
     if (t > 273.15 + 600.0) return Iapws97Region.Region2;
@@ -317,6 +319,7 @@ fn createEntryFromRegionPoint(
     specific_region_point: SpecificRegionPoint,
     phase_region: PhaseKind,
 ) PtvEntry {
+    std.debug.print("createEntryFromRegionPoint\n{any}\n{any}\n", .{ specific_region_point, phase_region });
     const temperature = specific_region_point.point.temperature.convertToSiUnit().value;
     const pressure = specific_region_point.point.pressure.convertToSiUnit().value;
     const pi = specific_region_point.pi;
@@ -328,18 +331,18 @@ fn createEntryFromRegionPoint(
     const gamma_tau_tau = specific_region_point.gamma_tau_tau;
     const gamma_pi_tau = specific_region_point.gamma_pi_tau;
 
-    const internal_energy = GAS_CONSTANT.value * temperature * (tau * gamma_tau - pi * gamma_pi);
-    const enthalpy = GAS_CONSTANT.value * temperature * tau * gamma_tau;
-    const entropy = GAS_CONSTANT.value * (tau * gamma_tau - gamma);
-    const cv = GAS_CONSTANT.value *
-        (-std.math.pow(f64, tau, 2.0) * gamma_tau_tau +
-            std.math.pow(f64, gamma_pi - tau * gamma_pi_tau, 2.0) / gamma_pi_pi);
-    const cp = GAS_CONSTANT.value * -std.math.pow(f64, tau, 2.0) * gamma_tau_tau;
-    const speed_of_sound = std.math.sqrt(GAS_CONSTANT.value * temperature *
-        (std.math.pow(f64, gamma_pi, 2.0) /
-            ((std.math.pow(f64, gamma_pi - tau * gamma_pi_tau, 2.0) /
-                (std.math.pow(f64, tau, 2.0) * gamma_tau_tau)) - gamma_pi_pi)));
-    const specific_volume = pi * (gamma_pi * GAS_CONSTANT.value * temperature) / pressure;
+    const internal_energy = WATER_GAS_CONSTANT.value * temperature * (tau * gamma_tau - pi * gamma_pi);
+    const enthalpy = WATER_GAS_CONSTANT.value * temperature * tau * gamma_tau;
+    const entropy = WATER_GAS_CONSTANT.value * (tau * gamma_tau - gamma);
+    const cv = WATER_GAS_CONSTANT.value *
+        (-std.math.pow(f64, tau, @as(f64, 2)) * gamma_tau_tau +
+            std.math.pow(f64, gamma_pi - tau * gamma_pi_tau, @as(f64, 2)) / gamma_pi_pi);
+    const cp = WATER_GAS_CONSTANT.value * -std.math.pow(f64, tau, @as(f64, 2)) * gamma_tau_tau;
+    const speed_of_sound = std.math.sqrt(WATER_GAS_CONSTANT.value * temperature *
+        (std.math.pow(f64, gamma_pi, @as(f64, 2)) /
+            ((std.math.pow(f64, gamma_pi - tau * gamma_pi_tau, @as(f64, 2)) /
+                (std.math.pow(f64, tau, @as(f64, 2)) * gamma_tau_tau)) - gamma_pi_pi)));
+    const specific_volume = pi * (gamma_pi * WATER_GAS_CONSTANT.value * temperature) / pressure;
 
     return PtvEntry{
         .temperature = Temperature{ .k = K.init(temperature) },
@@ -409,18 +412,18 @@ fn vaporMethod(
     const pi = pressure / 1.0e6;
 
     var gamma = @log(pi);
-    var gamma_pi = 1.0 / pi;
-    var gamma_pi_pi = -1.0 / std.math.pow(f64, pi, 2.0);
-    var gamma_tau: f64 = 0.0;
-    var gamma_tau_tau: f64 = 0.0;
-    var gamma_pi_tau: f64 = 0.0;
+    var gamma_pi = @as(f64, 1) / pi;
+    var gamma_pi_pi = @as(f64, -1) / std.math.pow(f64, pi, 2);
+    var gamma_tau: f64 = 0;
+    var gamma_tau_tau: f64 = 0;
+    var gamma_pi_tau: f64 = 0;
 
     for (ideal_points) |region_point| {
         const n = region_point.n;
         const j = region_point.j;
         gamma += n * pow(f64, tau, j);
-        gamma_tau += n * j * pow(f64, tau, j - 1.0);
-        gamma_tau_tau += n * j * (j - 1.0) * pow(f64, tau, j - 2.0);
+        gamma_tau += n * j * pow(f64, tau, j - @as(f64, 1));
+        gamma_tau_tau += n * j * (j - @as(f64, 1)) * pow(f64, tau, j - @as(f64, 2));
     }
 
     for (residual_points) |region_point| {
@@ -430,19 +433,19 @@ fn vaporMethod(
         const pow_pi = pow(f64, pi, i);
         const pow_tau = pow(f64, tau - tau_shift, j);
         gamma += n * pow_pi * pow_tau;
-        gamma_pi += n * i * pow(f64, pi, i - 1.0) * pow_tau;
-        gamma_pi_pi += n * i * (i - 1.0) * pow(f64, pi, i - 2.0) * pow_tau;
-        gamma_tau += n * pow_pi * j * pow(f64, tau - tau_shift, j - 1.0);
-        gamma_tau_tau += n * pow_pi * j * (j - 1.0) * pow(f64, tau - tau_shift, j - 2.0);
-        gamma_pi_tau += n * i * pow(f64, pi, i - 1.0) * j * pow(f64, tau - tau_shift, j - 1.0);
+        gamma_pi += n * i * pow(f64, pi, i - @as(f64, 1)) * pow_tau;
+        gamma_pi_pi += n * i * (i - @as(f64, 1)) * pow(f64, pi, i - @as(f64, 2)) * pow_tau;
+        gamma_tau += n * pow_pi * j * pow(f64, tau - tau_shift, j - @as(f64, 1));
+        gamma_tau_tau += n * pow_pi * j * (j - @as(f64, 1)) * pow(f64, tau - tau_shift, j - @as(f64, 2));
+        gamma_pi_tau += n * i * pow(f64, pi, i - @as(f64, 1)) * j * pow(f64, tau - tau_shift, j - @as(f64, 1));
     }
 
     const phase_info = blk: {
-        const above_temp = temperature > constants.WATER_CRITICAL_TEMPERATURE.value;
-        const above_pressure = pressure > constants.WATER_CRITICAL_PRESSURE.value;
-        if (above_temp and above_pressure) {
+        const above_critical_temp = temperature > constants.WATER_CRITICAL_TEMPERATURE.value;
+        const above_critical_pressure = pressure > constants.WATER_CRITICAL_PRESSURE.value;
+        if (above_critical_temp and above_critical_pressure) {
             break :blk PhaseKind{ .SupercriticalFluid = {} };
-        } else if (above_temp and !above_pressure) {
+        } else if (above_critical_temp and !above_critical_pressure) {
             break :blk PhaseKind{ .Gas = {} };
         } else {
             break :blk PhaseKind{ .NonCritical = .Vapor };
@@ -492,20 +495,20 @@ fn region3BySpecificVolume(pt_point: PtPoint, specific_volume: f64) PtvEntry {
         phi_delta_tau += n * i * pow(f64, delta, i - 1.0) * j * pow(f64, tau, j - 1.0);
     }
 
-    const pressure = phi_delta * delta * density * GAS_CONSTANT.value * temperature;
-    const internal_energy = tau * phi_tau * GAS_CONSTANT.value * temperature;
-    const enthalpy = (tau * phi_tau + delta * phi_delta) * GAS_CONSTANT.value * temperature;
-    const entropy = (tau * phi_tau - phi) * GAS_CONSTANT.value;
-    const cv = -std.math.pow(f64, tau, 2.0) * phi_tau_tau * GAS_CONSTANT.value;
+    const pressure = phi_delta * delta * density * WATER_GAS_CONSTANT.value * temperature;
+    const internal_energy = tau * phi_tau * WATER_GAS_CONSTANT.value * temperature;
+    const enthalpy = (tau * phi_tau + delta * phi_delta) * WATER_GAS_CONSTANT.value * temperature;
+    const entropy = (tau * phi_tau - phi) * WATER_GAS_CONSTANT.value;
+    const cv = -std.math.pow(f64, tau, 2.0) * phi_tau_tau * WATER_GAS_CONSTANT.value;
     const cp = (-std.math.pow(f64, tau, 2.0) * phi_tau_tau +
         std.math.pow(f64, delta * phi_delta - delta * tau * phi_delta_tau, 2.0) /
             (2.0 * delta * phi_delta + std.math.pow(f64, delta, 2.0) * phi_delta_delta)) *
-        GAS_CONSTANT.value;
+        WATER_GAS_CONSTANT.value;
 
     const speed_of_sound = std.math.sqrt(
         (2.0 * delta * phi_delta + std.math.pow(f64, delta, 2.0) * phi_delta_delta -
             std.math.pow(f64, delta * phi_delta - delta * tau * phi_delta_tau, 2.0) /
-                (std.math.pow(f64, tau, 2.0) * phi_tau_tau)) * GAS_CONSTANT.value * temperature,
+                (std.math.pow(f64, tau, 2.0) * phi_tau_tau)) * WATER_GAS_CONSTANT.value * temperature,
     );
 
     return PtvEntry{
@@ -541,16 +544,16 @@ fn getEntryFromPtPoint(point: PtPoint, region: Iapws97Region) SteamError!PtvEntr
     return switch (region) {
         .Region1, .Region4 => gibbsMethod(point),
         .Region2 => vaporMethod(
-            540.0 / temperature,
-            0.5,
+            @as(f64, 540.0) / temperature,
+            @as(f64, 0.5),
             point,
             steam_constants.REGION_2_IDEAL,
             steam_constants.REGION_2_RESIDUAL,
         ),
         .Region3 => try region3Method(point),
         .Region5 => vaporMethod(
-            1000.0 / temperature,
-            0.0,
+            @as(f64, 1000) / temperature,
+            @as(f64, 0),
             point,
             steam_constants.REGION_5_IDEAL,
             steam_constants.REGION_5_RESIDUAL,
@@ -826,12 +829,12 @@ pub fn getSteamTableEntry(query: SteamQuery) SteamError!PtvEntry {
     return switch (query) {
         .Pt => |point| blk: {
             const region = try getRegionFromPtPoint(point);
-            std.debug.print("getRegionFromPtPoint {s}", .{@tagName(region)});
+            std.debug.print("getRegionFromPtPoint {s}\n", .{@tagName(region)});
             break :blk try getEntryFromPtPoint(point, region);
         },
         .Sat => |sat_query| blk: {
             const result = try getRegionFromSatQuery(sat_query);
-            std.debug.print("getRegionFromSatQuery {s}", .{@tagName(result.region)});
+            std.debug.print("getRegionFromSatQuery {s}\n", .{@tagName(result.region)});
             break :blk try getEntryFromPtPoint(result.pt, result.region);
         },
         .EntropyP => |data| try iteratePtEntrySolution(
@@ -856,14 +859,23 @@ pub fn getSteamTableEntry(query: SteamQuery) SteamError!PtvEntry {
 }
 
 fn expectPtvPointsAreEqual(expected: PtvEntry, actual: PtvEntry) !void {
+    std.debug.print("testing PtvEntry pressure\n", .{});
     try std.testing.expectApproxEqAbs(expected.pressure.getValue(), actual.pressure.getValue(), 1e-9);
+    std.debug.print("testing PtvEntry temperature\n", .{});
     try std.testing.expectApproxEqAbs(expected.temperature.getValue(), actual.temperature.getValue(), 1e-9);
+    std.debug.print("testing PtvEntry internal_energy\n", .{});
     try std.testing.expectApproxEqAbs(expected.internal_energy.getValue(), actual.internal_energy.getValue(), 1e-9);
+    std.debug.print("testing PtvEntry enthalpy\n", .{});
     try std.testing.expectApproxEqAbs(expected.enthalpy.getValue(), actual.enthalpy.getValue(), 1e-9);
+    std.debug.print("testing PtvEntry entropy\n", .{});
     try std.testing.expectApproxEqAbs(expected.entropy.getValue(), actual.entropy.getValue(), 1e-9);
+    std.debug.print("testing PtvEntry cv\n", .{});
     try std.testing.expectApproxEqAbs(expected.cv.getValue(), actual.cv.getValue(), 1e-9);
+    std.debug.print("testing PtvEntry cp\n", .{});
     try std.testing.expectApproxEqAbs(expected.cp.getValue(), actual.cp.getValue(), 1e-9);
+    std.debug.print("testing PtvEntry speed_of_sound\n", .{});
     try std.testing.expectApproxEqAbs(expected.speed_of_sound.getValue(), actual.speed_of_sound.getValue(), 1e-9);
+    std.debug.print("testing PtvEntry specific_volume\n", .{});
     try std.testing.expectApproxEqAbs(expected.specific_volume.getValue(), actual.specific_volume.getValue(), 1e-9);
 }
 
