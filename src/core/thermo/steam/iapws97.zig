@@ -855,7 +855,19 @@ pub fn getSteamTableEntry(query: SteamQuery) SteamError!PtvEntry {
     };
 }
 
-test "Steam Test Region 1" {
+fn expectPtvPointsAreEqual(expected: PtvEntry, actual: PtvEntry) !void {
+    try std.testing.expectApproxEqAbs(expected.pressure.getValue(), actual.pressure.getValue(), 1e-9);
+    try std.testing.expectApproxEqAbs(expected.temperature.getValue(), actual.temperature.getValue(), 1e-9);
+    try std.testing.expectApproxEqAbs(expected.internal_energy.getValue(), actual.internal_energy.getValue(), 1e-9);
+    try std.testing.expectApproxEqAbs(expected.enthalpy.getValue(), actual.enthalpy.getValue(), 1e-9);
+    try std.testing.expectApproxEqAbs(expected.entropy.getValue(), actual.entropy.getValue(), 1e-9);
+    try std.testing.expectApproxEqAbs(expected.cv.getValue(), actual.cv.getValue(), 1e-9);
+    try std.testing.expectApproxEqAbs(expected.cp.getValue(), actual.cp.getValue(), 1e-9);
+    try std.testing.expectApproxEqAbs(expected.speed_of_sound.getValue(), actual.speed_of_sound.getValue(), 1e-9);
+    try std.testing.expectApproxEqAbs(expected.specific_volume.getValue(), actual.specific_volume.getValue(), 1e-9);
+}
+
+test "Pressure and Temperature Query Test Region 5" {
     const query = SteamQuery{ .Pt = PtPoint{
         .temperature = Temperature{ .k = K.init(750) },
         .pressure = Pressure{ .pa = Pa.init(78.309563916917e3) },
@@ -875,7 +887,5 @@ test "Steam Test Region 1" {
     };
 
     const actual = try getSteamTableEntry(query);
-
-    //try std.testing.expectApproxEqAbs(expected.Pt.pressure, actual.Pt.pressure, 1e-9);
-    try std.testing.expectApproxEqAbs(expected.pressure.getValue(), actual.pressure.getValue(), 1e-9);
+    try expectPtvPointsAreEqual(expected, actual);
 }
