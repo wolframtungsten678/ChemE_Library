@@ -9,6 +9,7 @@ const JnRegionPoint = steam_constants.JnRegionPoint;
 
 const K = units.K;
 const Pa = units.Pa;
+const KPa = units.KPa;
 const JPerKgK = units.JPerKgK;
 const Pressure = units.Pressure;
 const Temperature = units.Temperature;
@@ -142,6 +143,8 @@ const SpecificRegionPoint = struct {
     gamma_pi_tau: f64,
 };
 
+// TODO: Don't have a global variable!!!!
+// AI why you do this?
 var region3_current_point: PtPoint = .{
     .pressure = Pressure{ .pa = Pa.init(0.0) },
     .temperature = Temperature{ .k = K.init(0.0) },
@@ -261,28 +264,28 @@ fn getRegionFromPtPoint(pt_point: PtPoint) SteamError!Iapws97Region {
     const p = pt_point.pressure.convertToSiUnit().value;
     const t = t_si.value;
 
-    const sat_pressure = getSatPressure(t_si) catch |err| switch (err) {
-        SteamError.AboveCriticalTemperature => return Iapws97Region.Region5,
-        else => return err,
-    };
-
-    const boundary_pressure = getBoundary34Pressure(t_si) catch |err| switch (err) {
-        SteamError.BelowCriticalTemperature => null,
-        else => return err,
-    };
-    std.debug.print("sat_pressure\n{any}\n", .{sat_pressure});
-    std.debug.print("boundary_pressure\n{any}\n", .{boundary_pressure});
-
     if (t > 273.15 + 800.0) return Iapws97Region.Region5;
     if (t > 273.15 + 600.0) return Iapws97Region.Region2;
 
-    if (p == sat_pressure.value) return Iapws97Region.Region4;
-    if (p < sat_pressure.value) return Iapws97Region.Region2;
-    if (boundary_pressure) |boundary| {
-        if (p < boundary.value) return Iapws97Region.Region2;
-        return Iapws97Region.Region3;
+    const sat_pressure_optional = getSatPressure(t_si) catch |err| switch (err) {
+        else => null,
+    };
+    std.debug.print("sat_pressure\n{any}\n", .{sat_pressure_optional});
+
+    if (sat_pressure_optional) |sat_pressure| {
+        if (p == sat_pressure.value) return Iapws97Region.Region4;
+        if (p < sat_pressure.value) return Iapws97Region.Region2;
+        return Iapws97Region.Region1;
     }
-    return Iapws97Region.Region1;
+
+    const boundary_pressure = getBoundary34Pressure(t_si) catch |err| switch (err) {
+        else => return err,
+    };
+    std.debug.print("boundary_pressure\n{any}\n", .{boundary_pressure});
+    std.debug.print("p\n{any}\n", .{p});
+
+    if (p < boundary_pressure.value) return Iapws97Region.Region2;
+    return Iapws97Region.Region3;
 }
 
 fn getRegionFromSatQuery(sat_query: SatQuery) SteamError!struct { pt: PtPoint, region: Iapws97Region } {
@@ -863,6 +866,8 @@ fn expectPtvPointsAreEqual(expected: PtvEntry, actual: PtvEntry) !void {
     try std.testing.expectApproxEqAbs(expected.pressure.getValue(), actual.pressure.getValue(), 1e-9);
     std.debug.print("testing PtvEntry temperature\n", .{});
     try std.testing.expectApproxEqAbs(expected.temperature.getValue(), actual.temperature.getValue(), 1e-9);
+    std.debug.print("testing PtvEntry phase_region\n", .{});
+    try std.testing.expectEqual(expected.phase_region, actual.phase_region);
     std.debug.print("testing PtvEntry internal_energy\n", .{});
     try std.testing.expectApproxEqAbs(expected.internal_energy.getValue(), actual.internal_energy.getValue(), 1e-9);
     std.debug.print("testing PtvEntry enthalpy\n", .{});
@@ -882,12 +887,12 @@ fn expectPtvPointsAreEqual(expected: PtvEntry, actual: PtvEntry) !void {
 test "Pressure and Temperature Query Test Region 5" {
     const query = SteamQuery{ .Pt = PtPoint{
         .temperature = Temperature{ .k = K.init(750) },
-        .pressure = Pressure{ .pa = Pa.init(78.309563916917e3) },
+        .pressure = Pressure{ .kpa = KPa.init(78.309563916917e3) },
     } };
 
     const expected = PtvEntry{
         .temperature = Temperature{ .k = K.init(750) },
-        .pressure = Pressure{ .pa = Pa.init(78.309563916917e3) },
+        .pressure = Pressure{ .kpa = KPa.init(78.309563916917e3) },
         .phase_region = PhaseKind{ .SupercriticalFluid = {} },
         .internal_energy = EnergyPerMass{ .j_per_kg = JPerKg.init(2102.069317626429e3) },
         .enthalpy = EnergyPerMass{ .j_per_kg = JPerKg.init(2258.688445460262e3) },
