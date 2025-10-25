@@ -143,13 +143,6 @@ const SpecificRegionPoint = struct {
     gamma_pi_tau: f64,
 };
 
-// TODO: Don't have a global variable!!!!
-// AI why you do this?
-var region3_current_point: PtPoint = .{
-    .pressure = Pressure{ .pa = Pa.init(0.0) },
-    .temperature = Temperature{ .k = K.init(0.0) },
-};
-
 fn pow(comptime T: type, base: T, exponent: f64) T {
     return std.math.pow(T, base, exponent);
 }
@@ -528,15 +521,15 @@ fn region3BySpecificVolume(pt_point: PtPoint, specific_volume: f64) PtvEntry {
     };
 }
 
-fn region3Residual(x: f64) f64 {
-    const entry = region3BySpecificVolume(region3_current_point, x);
+fn region3Residual(region3_current_point: *PtPoint, x: f64) f64 {
+    const entry = region3BySpecificVolume(region3_current_point.*, x);
     return entry.pressure.convertToSiUnit().value -
         region3_current_point.pressure.convertToSiUnit().value;
 }
 
 fn region3Method(point: PtPoint) SteamError!PtvEntry {
-    region3_current_point = point;
-    const specific_volume = root_finder.secantMethod(region3Residual, 1.0 / 500.0, 1e-4) catch {
+    var c = root_finder.Closure(PtPoint){ .ctx = point, .func = region3Residual };
+    const specific_volume = root_finder.secantMethod(PtPoint, &c, 1.0 / 500.0, 1e-4) catch {
         return SteamError.FailedToConverge;
     };
     return region3BySpecificVolume(point, specific_volume);

@@ -5,8 +5,20 @@ pub const RootFinderError = error{
     MaxIterationsReached,
 };
 
+pub fn Closure(comptime T: type) type {
+    return struct {
+        ctx: T,
+        func: *const fn (*T, f64) f64,
+
+        pub fn call(self: *@This(), x: f64) f64 {
+            return self.func(&self.ctx, x);
+        }
+    };
+}
+
 fn solver(
-    f: anytype,
+    comptime T: type,
+    c: *Closure(T),
     x0: f64,
     y0: f64,
     x1: f64,
@@ -29,13 +41,13 @@ fn solver(
         x2 = (-ratio * x0 + x1) / (1.0 - ratio);
     }
 
-    const y2 = f(x2);
+    const y2 = c.call(x2);
     if (@abs(y2) <= tol) return x2;
 
-    return solver(f, x1, y1, x2, y2, tries + 1, max_iter, tol);
+    return solver(T, c, x1, y1, x2, y2, tries + 1, max_iter, tol);
 }
 
-pub fn secantMethod(f: anytype, x0: f64, tol: f64) RootFinderError!f64 {
+pub fn secantMethod(comptime T: type, c: *Closure(T), x0: f64, tol: f64) RootFinderError!f64 {
     const max_iter: usize = 50;
     if (tol < 0.0) return RootFinderError.ToleranceBelowZero;
 
@@ -43,51 +55,59 @@ pub fn secantMethod(f: anytype, x0: f64, tol: f64) RootFinderError!f64 {
     const x1_shift = x0 * (1.0 + eps);
     const x1 = x1_shift + if (x1_shift >= 0.0) eps else -eps;
 
-    const y0 = f(x0);
+    const y0 = c.call(x0);
     if (@abs(y0) <= tol) return x0;
 
-    const y1 = f(x1);
-    return solver(f, x0, y0, x1, y1, 0, max_iter, tol);
+    const y1 = c.call(x1);
+    return solver(T, c, x0, y0, x1, y1, 0, max_iter, tol);
+}
+
+fn polynomialRoot(_: *void, x: f64) f64 {
+    return x * x - 2.0 * x - 1.0;
 }
 
 test "secant method polynomial root" {
-    const f = struct {
-        fn call(x: f64) f64 {
-            return x * x - 2.0 * x - 1.0;
-        }
+    var c = Closure(void){
+        .ctx = {},
+        .func = polynomialRoot,
     };
 
-    const root = try secantMethod(f.call, 3.0, 1e-6);
-    try std.testing.expectApproxEqAbs(@as(f64, 0.0), f.call(root), 1e-6);
+    const root = try secantMethod(void, &c, 3.0, 1e-6);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), c.call(root), 1e-6);
+}
+
+fn transcendentalRoot(_: *void, x: f64) f64 {
+    return std.math.exp(x) - std.math.sin(x);
 }
 
 test "secant method transcendental root" {
-    const f = struct {
-        fn call(x: f64) f64 {
-            return std.math.exp(x) - std.math.sin(x);
-        }
+    var c = Closure(void){
+        .ctx = {},
+        .func = transcendentalRoot,
     };
 
-    const root = try secantMethod(f.call, 3.0, 1e-6);
-    try std.testing.expectApproxEqAbs(@as(f64, 0.0), f.call(root), 1e-6);
+    const root = try secantMethod(void, &c, 3.0, 1e-6);
+    try std.testing.expectApproxEqAbs(@as(f64, 0.0), c.call(root), 1e-6);
+}
+
+fn returnOne(_: *void, _: f64) f64 {
+    return @as(f64, 1);
 }
 
 test "secant method negative tolerance" {
-    const f = struct {
-        fn call(x: f64) f64 {
-            return x;
-        }
+    var c = Closure(void){
+        .ctx = {},
+        .func = returnOne,
     };
 
-    try std.testing.expectError(RootFinderError.ToleranceBelowZero, secantMethod(f.call, 3.0, -1e-6));
+    try std.testing.expectError(RootFinderError.ToleranceBelowZero, secantMethod(void, &c, 3.0, -1e-6));
 }
 
 test "secant method fails to converge" {
-    const f = struct {
-        fn call(_: f64) f64 {
-            return 1.0;
-        }
+    var c = Closure(void){
+        .ctx = {},
+        .func = returnOne,
     };
 
-    try std.testing.expectError(RootFinderError.MaxIterationsReached, secantMethod(f.call, 3.0, 1e-15));
+    try std.testing.expectError(RootFinderError.MaxIterationsReached, secantMethod(void, &c, 3.0, 1e-15));
 }
