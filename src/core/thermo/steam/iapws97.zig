@@ -863,28 +863,28 @@ pub fn getSteamTableEntry(query: SteamQuery) SteamError!PtvEntry {
 
 fn expectPtvPointsAreEqual(expected: PtvEntry, actual: PtvEntry) !void {
     std.debug.print("testing PtvEntry pressure\n", .{});
-    try std.testing.expectApproxEqAbs(expected.pressure.getValue(), actual.pressure.getValue(), 1e-9);
+    try std.testing.expectApproxEqAbs(expected.pressure.convertToSiUnit().value, actual.pressure.convertToSiUnit().value, 1e-6);
     std.debug.print("testing PtvEntry temperature\n", .{});
-    try std.testing.expectApproxEqAbs(expected.temperature.getValue(), actual.temperature.getValue(), 1e-9);
+    try std.testing.expectApproxEqAbs(expected.temperature.convertToSiUnit().value, actual.temperature.convertToSiUnit().value, 1e-9);
     std.debug.print("testing PtvEntry phase_region\n", .{});
     try std.testing.expectEqual(expected.phase_region, actual.phase_region);
     std.debug.print("testing PtvEntry internal_energy\n", .{});
-    try std.testing.expectApproxEqAbs(expected.internal_energy.getValue(), actual.internal_energy.getValue(), 1e-9);
+    try std.testing.expectApproxEqAbs(expected.internal_energy.convertToSiUnit().value, actual.internal_energy.convertToSiUnit().value, 1e-9);
     std.debug.print("testing PtvEntry enthalpy\n", .{});
-    try std.testing.expectApproxEqAbs(expected.enthalpy.getValue(), actual.enthalpy.getValue(), 1e-9);
+    try std.testing.expectApproxEqAbs(expected.enthalpy.convertToSiUnit().value, actual.enthalpy.convertToSiUnit().value, 1e-9);
     std.debug.print("testing PtvEntry entropy\n", .{});
-    try std.testing.expectApproxEqAbs(expected.entropy.getValue(), actual.entropy.getValue(), 1e-9);
+    try std.testing.expectApproxEqAbs(expected.entropy.convertToSiUnit().value, actual.entropy.convertToSiUnit().value, 1e-9);
     std.debug.print("testing PtvEntry cv\n", .{});
-    try std.testing.expectApproxEqAbs(expected.cv.getValue(), actual.cv.getValue(), 1e-9);
+    try std.testing.expectApproxEqAbs(expected.cv.convertToSiUnit().value, actual.cv.convertToSiUnit().value, 1e-9);
     std.debug.print("testing PtvEntry cp\n", .{});
-    try std.testing.expectApproxEqAbs(expected.cp.getValue(), actual.cp.getValue(), 1e-9);
+    try std.testing.expectApproxEqAbs(expected.cp.convertToSiUnit().value, actual.cp.convertToSiUnit().value, 1e-9);
     std.debug.print("testing PtvEntry speed_of_sound\n", .{});
-    try std.testing.expectApproxEqAbs(expected.speed_of_sound.getValue(), actual.speed_of_sound.getValue(), 1e-9);
+    try std.testing.expectApproxEqAbs(expected.speed_of_sound.convertToSiUnit().value, actual.speed_of_sound.convertToSiUnit().value, 1e-9);
     std.debug.print("testing PtvEntry specific_volume\n", .{});
-    try std.testing.expectApproxEqAbs(expected.specific_volume.getValue(), actual.specific_volume.getValue(), 1e-9);
+    try std.testing.expectApproxEqAbs(expected.specific_volume.convertToSiUnit().value, actual.specific_volume.convertToSiUnit().value, 1e-9);
 }
 
-test "Pressure and Temperature Query Test Region 5" {
+test "Pressure and Temperature Query Test Region 3" {
     const query = SteamQuery{ .Pt = PtPoint{
         .temperature = Temperature{ .k = K.init(750) },
         .pressure = Pressure{ .kpa = KPa.init(78.309563916917e3) },
