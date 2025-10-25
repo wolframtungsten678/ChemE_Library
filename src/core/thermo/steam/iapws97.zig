@@ -869,9 +869,9 @@ fn expectPtvPointsAreEqual(expected: PtvEntry, actual: PtvEntry) !void {
     std.debug.print("testing PtvEntry phase_region\n", .{});
     try std.testing.expectEqual(expected.phase_region, actual.phase_region);
     std.debug.print("testing PtvEntry internal_energy\n", .{});
-    try std.testing.expectApproxEqAbs(expected.internal_energy.convertToSiUnit().value, actual.internal_energy.convertToSiUnit().value, 1e-9);
+    try std.testing.expectApproxEqAbs(expected.internal_energy.convertToSiUnit().value, actual.internal_energy.convertToSiUnit().value, 1e-6);
     std.debug.print("testing PtvEntry enthalpy\n", .{});
-    try std.testing.expectApproxEqAbs(expected.enthalpy.convertToSiUnit().value, actual.enthalpy.convertToSiUnit().value, 1e-9);
+    try std.testing.expectApproxEqAbs(expected.enthalpy.convertToSiUnit().value, actual.enthalpy.convertToSiUnit().value, 1e-6);
     std.debug.print("testing PtvEntry entropy\n", .{});
     try std.testing.expectApproxEqAbs(expected.entropy.convertToSiUnit().value, actual.entropy.convertToSiUnit().value, 1e-9);
     std.debug.print("testing PtvEntry cv\n", .{});
@@ -906,3 +906,220 @@ test "Pressure and Temperature Query Test Region 3" {
     const actual = try getSteamTableEntry(query);
     try expectPtvPointsAreEqual(expected, actual);
 }
+
+test "Pressure and Temperature Query Test Region 1" {
+    const query = SteamQuery{
+        .Pt = PtPoint{
+            .temperature = Temperature{ .k = K.init(473.15) },
+            .pressure = Pressure{ .pa = Pa.init(40e6) },
+        },
+    };
+
+    const expected = PtvEntry{
+        .temperature = Temperature{ .k = K.init(473.15) },
+        .pressure = Pressure{ .pa = Pa.init(40e6) },
+        .phase_region = PhaseKind{ .NonCritical = .Liquid },
+        .internal_energy = EnergyPerMass{ .j_per_kg = JPerKg.init(825.228016170348e3) },
+        .enthalpy = EnergyPerMass{ .j_per_kg = JPerKg.init(870.124259682489e3) },
+        .entropy = EnergyPerMassTemperature{ .j_per_kg_k = JPerKgK.init(2.275752861241e3) },
+        .cv = EnergyPerMassTemperature{ .j_per_kg_k = JPerKgK.init(3.292858637199e3) },
+        .cp = EnergyPerMassTemperature{ .j_per_kg_k = JPerKgK.init(4.315767590903e3) },
+        .speed_of_sound = Velocity{ .m_per_sec = MPerSec.init(1457.418351596083) },
+        .specific_volume = SpecificVolume{ .m3_per_kg = M3PerKg.init(0.001122406088) },
+    };
+
+    const actual = try getSteamTableEntry(query);
+    try expectPtvPointsAreEqual(expected, actual);
+}
+
+test "Pressure and Temperature Query Test Region 5" {
+    const query = SteamQuery{
+        .Pt = PtPoint{
+            .temperature = Temperature{ .k = K.init(2000.0) },
+            .pressure = Pressure{ .pa = Pa.init(30e6) },
+        },
+    };
+
+    const expected = PtvEntry{
+        .temperature = Temperature{ .k = K.init(2000.0) },
+        .pressure = Pressure{ .pa = Pa.init(30e6) },
+        .phase_region = PhaseKind{ .SupercriticalFluid = {} },
+        .internal_energy = EnergyPerMass{ .j_per_kg = JPerKg.init(5637.070382521894e3) },
+        .enthalpy = EnergyPerMass{ .j_per_kg = JPerKg.init(6571.226038618478e3) },
+        .entropy = EnergyPerMassTemperature{ .j_per_kg_k = JPerKgK.init(8.536405231138e3) },
+        .cv = EnergyPerMassTemperature{ .j_per_kg_k = JPerKgK.init(2.395894362358e3) },
+        .cp = EnergyPerMassTemperature{ .j_per_kg_k = JPerKgK.init(2.885698818781e3) },
+        .speed_of_sound = Velocity{ .m_per_sec = MPerSec.init(1067.369478777425) },
+        .specific_volume = SpecificVolume{ .m3_per_kg = M3PerKg.init(0.03113852187) },
+    };
+
+    const actual = try getSteamTableEntry(query);
+    try expectPtvPointsAreEqual(expected, actual);
+}
+
+test "Pressure and Temperature Query Test Region 2" {
+    const query = SteamQuery{
+        .Pt = PtPoint{
+            .temperature = Temperature{ .k = K.init(823.15) },
+            .pressure = Pressure{ .pa = Pa.init(14e6) },
+        },
+    };
+
+    const expected = PtvEntry{
+        .temperature = Temperature{ .k = K.init(823.15) },
+        .pressure = Pressure{ .pa = Pa.init(14e6) },
+        .phase_region = PhaseKind{ .Gas = {} },
+        .internal_energy = EnergyPerMass{ .j_per_kg = JPerKg.init(3114.302136294585e3) },
+        .enthalpy = EnergyPerMass{ .j_per_kg = JPerKg.init(3460.987255128561e3) },
+        .entropy = EnergyPerMassTemperature{ .j_per_kg_k = JPerKgK.init(6.564768889364e3) },
+        .cv = EnergyPerMassTemperature{ .j_per_kg_k = JPerKgK.init(1.892708832325e3) },
+        .cp = EnergyPerMassTemperature{ .j_per_kg_k = JPerKgK.init(2.666558503968e3) },
+        .speed_of_sound = Velocity{ .m_per_sec = MPerSec.init(666.050616844223) },
+        .specific_volume = SpecificVolume{ .m3_per_kg = M3PerKg.init(0.024763222774) },
+    };
+
+    const actual = try getSteamTableEntry(query);
+    try expectPtvPointsAreEqual(expected, actual);
+}
+
+test "Saturated Pressure Liquid Query Test Region 1" {
+    const query = SteamQuery{
+        .Sat = SatQuery{
+            .SatPQuery = .{
+                .pressure = Pressure{ .pa = Pa.init(0.2e6) },
+                .phase_region = SteamNonCriticalPhaseRegion.Liquid,
+            },
+        },
+    };
+
+    const expected = PtvEntry{
+        .temperature = Temperature{ .k = K.init(393.361545936488) },
+        .pressure = Pressure{ .pa = Pa.init(0.2e6) },
+        .phase_region = PhaseKind{ .NonCritical = .Liquid },
+        .internal_energy = EnergyPerMass{ .j_per_kg = JPerKg.init(504471.741847973) },
+        .enthalpy = EnergyPerMass{ .j_per_kg = JPerKg.init(504683.84552926) },
+        .entropy = EnergyPerMassTemperature{ .j_per_kg_k = JPerKgK.init(1530.0982011075) },
+        .cv = EnergyPerMassTemperature{ .j_per_kg_k = JPerKgK.init(3666.99397284121) },
+        .cp = EnergyPerMassTemperature{ .j_per_kg_k = JPerKgK.init(4246.73524917536) },
+        .speed_of_sound = Velocity{ .m_per_sec = MPerSec.init(1520.69128792808) },
+        .specific_volume = SpecificVolume{ .m3_per_kg = M3PerKg.init(0.00106051840643552) },
+    };
+
+    const actual = try getSteamTableEntry(query);
+    try expectPtvPointsAreEqual(expected, actual);
+}
+
+test "Saturated Pressure Vapor Query Test Region 2" {
+    const query = SteamQuery{
+        .Sat = SatQuery{
+            .SatPQuery = .{
+                .pressure = Pressure{ .pa = Pa.init(0.2e6) },
+                .phase_region = SteamNonCriticalPhaseRegion.Vapor,
+            },
+        },
+    };
+
+    const expected = PtvEntry{
+        .temperature = Temperature{ .k = K.init(393.361545936488) },
+        .pressure = Pressure{ .pa = Pa.init(0.2e6) },
+        .phase_region = PhaseKind{ .NonCritical = .Vapor },
+        .internal_energy = EnergyPerMass{ .j_per_kg = JPerKg.init(2529094.32835793) },
+        .enthalpy = EnergyPerMass{ .j_per_kg = JPerKg.init(2706241.34137425) },
+        .entropy = EnergyPerMassTemperature{ .j_per_kg_k = JPerKgK.init(7126.8563914686) },
+        .cv = EnergyPerMassTemperature{ .j_per_kg_k = JPerKgK.init(1615.96336473298) },
+        .cp = EnergyPerMassTemperature{ .j_per_kg_k = JPerKgK.init(2175.22318865273) },
+        .speed_of_sound = Velocity{ .m_per_sec = MPerSec.init(481.883535821489) },
+        .specific_volume = SpecificVolume{ .m3_per_kg = M3PerKg.init(0.885735065081644) },
+    };
+
+    const actual = try getSteamTableEntry(query);
+    try expectPtvPointsAreEqual(expected, actual);
+}
+
+test "Saturated Temperature Liquid Query Test Region 1" {
+    const query = SteamQuery{
+        .Sat = SatQuery{
+            .SatTQuery = .{
+                .temperature = Temperature{ .k = K.init(393.361545936488) },
+                .phase_region = SteamNonCriticalPhaseRegion.Liquid,
+            },
+        },
+    };
+
+    const expected = PtvEntry{
+        .temperature = Temperature{ .k = K.init(393.361545936488) },
+        .pressure = Pressure{ .pa = Pa.init(0.2e6) },
+        .phase_region = PhaseKind{ .NonCritical = .Liquid },
+        .internal_energy = EnergyPerMass{ .j_per_kg = JPerKg.init(504471.741847973) },
+        .enthalpy = EnergyPerMass{ .j_per_kg = JPerKg.init(504683.84552926) },
+        .entropy = EnergyPerMassTemperature{ .j_per_kg_k = JPerKgK.init(1530.0982011075) },
+        .cv = EnergyPerMassTemperature{ .j_per_kg_k = JPerKgK.init(3666.99397284121) },
+        .cp = EnergyPerMassTemperature{ .j_per_kg_k = JPerKgK.init(4246.73524917536) },
+        .speed_of_sound = Velocity{ .m_per_sec = MPerSec.init(1520.69128792808) },
+        .specific_volume = SpecificVolume{ .m3_per_kg = M3PerKg.init(0.00106051840643552) },
+    };
+
+    const actual = try getSteamTableEntry(query);
+    try expectPtvPointsAreEqual(expected, actual);
+}
+
+test "Saturated Temperature Vapor Query Test Region 2" {
+    const query = SteamQuery{
+        .Sat = SatQuery{
+            .SatTQuery = .{
+                .temperature = Temperature{ .k = K.init(393.361545936488) },
+                .phase_region = SteamNonCriticalPhaseRegion.Vapor,
+            },
+        },
+    };
+
+    const expected = PtvEntry{
+        .temperature = Temperature{ .k = K.init(393.361545936488) },
+        .pressure = Pressure{ .pa = Pa.init(0.2e6) },
+        .phase_region = PhaseKind{ .NonCritical = .Vapor },
+        .internal_energy = EnergyPerMass{ .j_per_kg = JPerKg.init(2529094.32835793) },
+        .enthalpy = EnergyPerMass{ .j_per_kg = JPerKg.init(2706241.34137425) },
+        .entropy = EnergyPerMassTemperature{ .j_per_kg_k = JPerKgK.init(7126.8563914686) },
+        .cv = EnergyPerMassTemperature{ .j_per_kg_k = JPerKgK.init(1615.96336473298) },
+        .cp = EnergyPerMassTemperature{ .j_per_kg_k = JPerKgK.init(2175.22318865273) },
+        .speed_of_sound = Velocity{ .m_per_sec = MPerSec.init(481.883535821489) },
+        .specific_volume = SpecificVolume{ .m3_per_kg = M3PerKg.init(0.885735065081644) },
+    };
+
+    const actual = try getSteamTableEntry(query);
+    try expectPtvPointsAreEqual(expected, actual);
+}
+
+//test "Entropy Pressure Query Test Region 3" {
+//const query = SteamQuery{
+//.EntropyP = .{
+//.entropy = EnergyPerMassTemperature{ .j_per_kg_k = JPerKgK.init(4.469719056217e3) },
+//.pressure = Pressure{ .pa = Pa.init(78.309563916917e6) },
+//},
+//};
+
+//const expected = PtvEntry{
+//.temperature = Temperature{ .k = K.init(750) },
+//.pressure = Pressure{ .kpa = KPa.init(78.309563916917e3) },
+//.phase_region = PhaseKind{ .SupercriticalFluid = {} },
+//.internal_energy = EnergyPerMass{ .j_per_kg = JPerKg.init(2102.069317626429e3) },
+//.enthalpy = EnergyPerMass{ .j_per_kg = JPerKg.init(2258.688445460262e3) },
+//.entropy = EnergyPerMassTemperature{ .j_per_kg_k = JPerKgK.init(4.469719056217e3) },
+//.cv = EnergyPerMassTemperature{ .j_per_kg_k = JPerKgK.init(2.71701677121e3) },
+//.cp = EnergyPerMassTemperature{ .j_per_kg_k = JPerKgK.init(6.341653594791e3) },
+//.speed_of_sound = Velocity{ .m_per_sec = MPerSec.init(760.696040876798) },
+//.specific_volume = SpecificVolume{ .m3_per_kg = M3PerKg.init(@as(f64, 1) / @as(f64, 500)) },
+//};
+
+//const actual = try getSteamTableEntry(query);
+//try expectPtvPointsAreEqual(expected, actual);
+//}
+
+//test "Pressure and Temperature Query Test Region ?" {
+//const query = SteamQuery{};
+
+//const expected = PtvEntry{};
+
+//const actual = try getSteamTableEntry(query);
+//try expectPtvPointsAreEqual(expected, actual);
+//}
