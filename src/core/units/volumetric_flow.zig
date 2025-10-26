@@ -5,7 +5,6 @@ const UnitLabel = common.UnitLabel;
 const RawUnit = common.RawUnit;
 const ParseUnitError = common.ParseUnitError;
 const isMatch = common.isMatch;
-const absFloat = common.absFloat;
 const feet_per_meter_cu = common.feet_per_meter_cu;
 const seconds_per_minute = common.seconds_per_minute;
 
@@ -26,15 +25,6 @@ pub const VolumetricFlowRate = union(enum) {
     m3_per_min: M3PerMin,
     ft3_per_sec: Ft3PerSec,
     ft3_per_min: Ft3PerMin,
-
-    pub fn abs(self: VolumetricFlowRate) f64 {
-        return absFloat(self.convertToSiUnit().value);
-    }
-
-    pub fn sub(self: VolumetricFlowRate, other: VolumetricFlowRate) VolumetricFlowRate {
-        const diff = self.convertToSiUnit().sub(other.convertToSiUnit());
-        return .{ .m3_per_sec = diff };
-    }
 
     pub fn convertToSiUnit(self: VolumetricFlowRate) M3PerSec {
         return switch (self) {

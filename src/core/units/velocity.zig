@@ -5,7 +5,6 @@ const UnitLabel = common.UnitLabel;
 const RawUnit = common.RawUnit;
 const ParseUnitError = common.ParseUnitError;
 const isMatch = common.isMatch;
-const absFloat = common.absFloat;
 const feet_per_meter = common.feet_per_meter;
 
 pub const MPerSec = UnitValueType();
@@ -19,15 +18,6 @@ const velocity_labels = [_]UnitLabel{
 pub const Velocity = union(enum) {
     m_per_sec: MPerSec,
     ft_per_sec: FtPerSec,
-
-    pub fn abs(self: Velocity) f64 {
-        return absFloat(self.convertToSiUnit().value);
-    }
-
-    pub fn sub(self: Velocity, other: Velocity) Velocity {
-        const diff = self.convertToSiUnit().sub(other.convertToSiUnit());
-        return .{ .m_per_sec = diff };
-    }
 
     pub fn convertToSiUnit(self: Velocity) MPerSec {
         return switch (self) {

@@ -5,7 +5,6 @@ const UnitLabel = common.UnitLabel;
 const RawUnit = common.RawUnit;
 const ParseUnitError = common.ParseUnitError;
 const isMatch = common.isMatch;
-const absFloat = common.absFloat;
 const specific_volume_conversion = common.specific_volume_conversion;
 
 pub const M3PerKg = UnitValueType();
@@ -19,15 +18,6 @@ const labels = [_]UnitLabel{
 pub const SpecificVolume = union(enum) {
     m3_per_kg: M3PerKg,
     ft3_per_lbsm: Ft3PerLbsm,
-
-    pub fn abs(self: SpecificVolume) f64 {
-        return absFloat(self.convertToSiUnit().value);
-    }
-
-    pub fn sub(self: SpecificVolume, other: SpecificVolume) SpecificVolume {
-        const diff = self.convertToSiUnit().sub(other.convertToSiUnit());
-        return .{ .m3_per_kg = diff };
-    }
 
     pub fn convertToSiUnit(self: SpecificVolume) M3PerKg {
         return switch (self) {

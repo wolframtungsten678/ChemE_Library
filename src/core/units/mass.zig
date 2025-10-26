@@ -5,7 +5,6 @@ const UnitLabel = common.UnitLabel;
 const RawUnit = common.RawUnit;
 const ParseUnitError = common.ParseUnitError;
 const isMatch = common.isMatch;
-const absFloat = common.absFloat;
 const grams_per_kilogram = common.grams_per_kilogram;
 const pounds_mass_per_kilogram = common.pounds_mass_per_kilogram;
 
@@ -23,15 +22,6 @@ pub const Mass = union(enum) {
     kg: Kg,
     g: G,
     lbsm: Lbsm,
-
-    pub fn abs(self: Mass) f64 {
-        return absFloat(self.convertToSiUnit().value);
-    }
-
-    pub fn sub(self: Mass, other: Mass) Mass {
-        const diff = self.convertToSiUnit().sub(other.convertToSiUnit());
-        return .{ .kg = diff };
-    }
 
     pub fn convertToSiUnit(self: Mass) Kg {
         return switch (self) {

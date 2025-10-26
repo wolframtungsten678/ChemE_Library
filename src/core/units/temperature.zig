@@ -5,7 +5,6 @@ const UnitLabel = common.UnitLabel;
 const RawUnit = common.RawUnit;
 const ParseUnitError = common.ParseUnitError;
 const isMatch = common.isMatch;
-const absFloat = common.absFloat;
 const kelvin_offset_celsius = common.kelvin_offset_celsius;
 
 pub const K = UnitValueType();
@@ -25,15 +24,6 @@ pub const Temperature = union(enum) {
     c: C,
     f: F,
     r: R,
-
-    pub fn abs(self: Temperature) f64 {
-        return absFloat(self.convertToSiUnit().value);
-    }
-
-    pub fn sub(self: Temperature, other: Temperature) Temperature {
-        const diff = self.convertToSiUnit().sub(other.convertToSiUnit());
-        return .{ .k = diff };
-    }
 
     pub fn convertToSiUnit(self: Temperature) K {
         return switch (self) {

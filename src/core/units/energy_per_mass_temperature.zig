@@ -5,7 +5,6 @@ const UnitLabel = common.UnitLabel;
 const RawUnit = common.RawUnit;
 const ParseUnitError = common.ParseUnitError;
 const isMatch = common.isMatch;
-const absFloat = common.absFloat;
 const energy_per_mass_temp_conversion = common.energy_per_mass_temp_conversion;
 
 pub const JPerKgK = UnitValueType();
@@ -19,15 +18,6 @@ const labels = [_]UnitLabel{
 pub const EnergyPerMassTemperature = union(enum) {
     j_per_kg_k: JPerKgK,
     btu_per_lbsm_r: BtuPerLbsmR,
-
-    pub fn abs(self: EnergyPerMassTemperature) f64 {
-        return absFloat(self.convertToSiUnit().value);
-    }
-
-    pub fn sub(self: EnergyPerMassTemperature, other: EnergyPerMassTemperature) EnergyPerMassTemperature {
-        const diff = self.convertToSiUnit().sub(other.convertToSiUnit());
-        return .{ .j_per_kg_k = diff };
-    }
 
     pub fn convertToSiUnit(self: EnergyPerMassTemperature) JPerKgK {
         return switch (self) {

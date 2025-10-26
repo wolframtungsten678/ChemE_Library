@@ -5,7 +5,6 @@ const UnitLabel = common.UnitLabel;
 const RawUnit = common.RawUnit;
 const ParseUnitError = common.ParseUnitError;
 const isMatch = common.isMatch;
-const absFloat = common.absFloat;
 const pascals_per_kpa = common.pascals_per_kpa;
 const pascals_per_psi = common.pascals_per_psi;
 
@@ -23,15 +22,6 @@ pub const Pressure = union(enum) {
     pa: Pa,
     kpa: KPa,
     lbf: Lbf,
-
-    pub fn abs(self: Pressure) f64 {
-        return absFloat(self.convertToSiUnit().value);
-    }
-
-    pub fn sub(self: Pressure, other: Pressure) Pressure {
-        const diff = self.convertToSiUnit().sub(other.convertToSiUnit());
-        return .{ .pa = diff };
-    }
 
     pub fn convertToSiUnit(self: Pressure) Pa {
         return switch (self) {

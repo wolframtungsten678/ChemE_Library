@@ -5,7 +5,6 @@ const UnitLabel = common.UnitLabel;
 const RawUnit = common.RawUnit;
 const ParseUnitError = common.ParseUnitError;
 const isMatch = common.isMatch;
-const absFloat = common.absFloat;
 const meters_per_kilometer_cu = common.meters_per_kilometer_cu;
 const feet_per_meter_cu = common.feet_per_meter_cu;
 const inches_per_meter_cu = common.inches_per_meter_cu;
@@ -27,15 +26,6 @@ pub const Volume = union(enum) {
     km3: Km3,
     ft3: Ft3,
     inches3: Inches3,
-
-    pub fn abs(self: Volume) f64 {
-        return absFloat(self.convertToSiUnit().value);
-    }
-
-    pub fn sub(self: Volume, other: Volume) Volume {
-        const diff = self.convertToSiUnit().sub(other.convertToSiUnit());
-        return .{ .m3 = diff };
-    }
 
     pub fn convertToSiUnit(self: Volume) M3 {
         return switch (self) {

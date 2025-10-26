@@ -5,7 +5,6 @@ const UnitLabel = common.UnitLabel;
 const RawUnit = common.RawUnit;
 const ParseUnitError = common.ParseUnitError;
 const isMatch = common.isMatch;
-const absFloat = common.absFloat;
 const meters_per_kilometer_sq = common.meters_per_kilometer_sq;
 const feet_per_meter_sq = common.feet_per_meter_sq;
 const inches_per_meter_sq = common.inches_per_meter_sq;
@@ -27,15 +26,6 @@ pub const Area = union(enum) {
     km2: Km2,
     ft2: Ft2,
     inches2: Inches2,
-
-    pub fn abs(self: Area) f64 {
-        return absFloat(self.convertToSiUnit().value);
-    }
-
-    pub fn sub(self: Area, other: Area) Area {
-        const diff = self.convertToSiUnit().sub(other.convertToSiUnit());
-        return .{ .m2 = diff };
-    }
 
     pub fn convertToSiUnit(self: Area) M2 {
         return switch (self) {

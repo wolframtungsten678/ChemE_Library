@@ -15,7 +15,6 @@ pub const UnitLabel = struct {
 };
 
 pub const isMatch = utils.isMatch;
-pub const absFloat = utils.absFloat;
 pub const UnitValueType = utils.UnitValueType;
 
 pub const meters_per_kilometer = 1000.0;

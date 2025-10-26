@@ -5,7 +5,6 @@ const UnitLabel = common.UnitLabel;
 const RawUnit = common.RawUnit;
 const ParseUnitError = common.ParseUnitError;
 const isMatch = common.isMatch;
-const absFloat = common.absFloat;
 const density_conversion = common.density_conversion;
 
 pub const KgPerM3 = UnitValueType();
@@ -19,15 +18,6 @@ const labels = [_]UnitLabel{
 pub const Density = union(enum) {
     kg_per_m3: KgPerM3,
     lbsm_per_ft3: LbsmPerFt3,
-
-    pub fn abs(self: Density) f64 {
-        return absFloat(self.convertToSiUnit().value);
-    }
-
-    pub fn sub(self: Density, other: Density) Density {
-        const diff = self.convertToSiUnit().sub(other.convertToSiUnit());
-        return .{ .kg_per_m3 = diff };
-    }
 
     pub fn convertToSiUnit(self: Density) KgPerM3 {
         return switch (self) {

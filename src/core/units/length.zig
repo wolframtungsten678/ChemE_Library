@@ -5,7 +5,6 @@ const UnitLabel = common.UnitLabel;
 const RawUnit = common.RawUnit;
 const ParseUnitError = common.ParseUnitError;
 const isMatch = common.isMatch;
-const absFloat = common.absFloat;
 const meters_per_kilometer = common.meters_per_kilometer;
 const feet_per_meter = common.feet_per_meter;
 const inches_per_foot = common.inches_per_foot;
@@ -27,15 +26,6 @@ pub const Length = union(enum) {
     km: Km,
     ft: Ft,
     inches: Inches,
-
-    pub fn abs(self: Length) f64 {
-        return absFloat(self.convertToSiUnit().value);
-    }
-
-    pub fn sub(self: Length, other: Length) Length {
-        const diff = self.convertToSiUnit().sub(other.convertToSiUnit());
-        return .{ .m = diff };
-    }
 
     pub fn convertToSiUnit(self: Length) M {
         return switch (self) {
