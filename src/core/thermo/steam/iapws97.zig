@@ -62,34 +62,34 @@ pub const CompositePhaseRegion = struct {
     }
 };
 
-pub const PtPoint = struct {
-    pressure: Pressure,
-    temperature: Temperature,
-};
+//pub const PtPoint = struct {
+//pressure: Pressure,
+//temperature: Temperature,
+//};
 
-pub const SatQuery = union(enum) {
-    SatTQuery: struct {
-        temperature: Temperature,
-        phase_region: SteamNonCriticalPhaseRegion,
-    },
-    SatPQuery: struct {
-        pressure: Pressure,
-        phase_region: SteamNonCriticalPhaseRegion,
-    },
-};
+//pub const SatQuery = union(enum) {
+//SatTQuery: struct {
+//temperature: Temperature,
+//phase_region: SteamNonCriticalPhaseRegion,
+//},
+//SatPressureQuery: struct {
+//pressure: Pressure,
+//phase_region: SteamNonCriticalPhaseRegion,
+//},
+//};
 
-pub const SteamQuery = union(enum) {
-    Pt: PtPoint,
-    Sat: SatQuery,
-    EntropyP: struct {
-        entropy: EnergyPerMassTemperature,
-        pressure: Pressure,
-    },
-    EnthalpyP: struct {
-        enthalpy: EnergyPerMass,
-        pressure: Pressure,
-    },
-};
+//pub const SteamQuery = union(enum) {
+//Pt: PtPoint,
+//Sat: SatQuery,
+//EntropyP: struct {
+//entropy: EnergyPerMassTemperature,
+//pressure: Pressure,
+//},
+//EnthalpyP: struct {
+//enthalpy: EnergyPerMass,
+//pressure: Pressure,
+//},
+//};
 
 pub const PtvEntry = struct {
     temperature: Temperature,
@@ -117,7 +117,8 @@ pub const NonCriticalPhaseRegion = enum {
 };
 
 const SpecificRegionPoint = struct {
-    point: PtPoint,
+    pressure: Pa,
+    temperature: K,
     tau: f64,
     pi: f64,
     gamma: f64,
@@ -188,32 +189,32 @@ fn getBoundary34Pressure(temperature: K) SteamError!Pa {
     return Pa.init(pressure);
 }
 
-fn extractPressure(query: SteamQuery) ?Pressure {
-    return switch (query) {
-        .Pt => |pt| pt.pressure,
-        .Sat => |sat| switch (sat) {
-            .SatPQuery => |sat_p| sat_p.pressure,
-            else => null,
-        },
-        .EntropyP => |data| data.pressure,
-        .EnthalpyP => |data| data.pressure,
-    };
-}
+//fn extractPressure(query: SteamQuery) ?Pressure {
+//return switch (query) {
+//.Pt => |pt| pt.pressure,
+//.Sat => |sat| switch (sat) {
+//.SatPQuery => |sat_p| sat_p.pressure,
+//else => null,
+//},
+//.EntropyP => |data| data.pressure,
+//.EnthalpyP => |data| data.pressure,
+//};
+//}
 
-fn extractTemperature(query: SteamQuery) ?Temperature {
-    return switch (query) {
-        .Pt => |pt| pt.temperature,
-        .Sat => |sat| switch (sat) {
-            .SatTQuery => |sat_t| sat_t.temperature,
-            else => null,
-        },
-        else => null,
-    };
-}
+//fn extractTemperature(query: SteamQuery) ?Temperature {
+//return switch (query) {
+//.Pt => |pt| pt.temperature,
+//.Sat => |sat| switch (sat) {
+//.SatTQuery => |sat_t| sat_t.temperature,
+//else => null,
+//},
+//else => null,
+//};
+//}
 
-fn checkIfOutOfRange(query: SteamQuery) SteamError!void {
-    const opt_p = if (extractPressure(query)) |p| p.convertToSiUnit().value else null;
-    const opt_t = if (extractTemperature(query)) |t| t.convertToSiUnit().value else null;
+fn checkIfOutOfRange(pressure: ?Pa, temperature: ?K) SteamError!void {
+    const opt_p = if (pressure) |p| p.value else null;
+    const opt_t = if (temperature) |t| t.value else null;
 
     if (opt_t) |t| {
         if (t < 273.15) return SteamError.TemperatureLow;
@@ -237,15 +238,14 @@ const Iapws97Region = enum {
     Region5,
 };
 
-fn getRegionFromPtPoint(pt_point: PtPoint) SteamError!Iapws97Region {
-    const t_si = pt_point.temperature.convertToSiUnit();
-    const p = pt_point.pressure.convertToSiUnit().value;
-    const t = t_si.value;
+fn getRegionFromPressureAndTemperature(pressure: Pa, temperature: K) SteamError!Iapws97Region {
+    const p = pressure.value;
+    const t = temperature.value;
 
     if (t > 273.15 + 800.0) return Iapws97Region.Region5;
     if (t > 273.15 + 600.0) return Iapws97Region.Region2;
 
-    const sat_pressure_optional = getSatPressure(t_si) catch |err| switch (err) {
+    const sat_pressure_optional = getSatPressure(temperature) catch |err| switch (err) {
         else => null,
     };
 
@@ -255,7 +255,7 @@ fn getRegionFromPtPoint(pt_point: PtPoint) SteamError!Iapws97Region {
         return Iapws97Region.Region1;
     }
 
-    const boundary_pressure = getBoundary34Pressure(t_si) catch |err| switch (err) {
+    const boundary_pressure = getBoundary34Pressure(temperature) catch |err| switch (err) {
         else => return err,
     };
 
@@ -263,33 +263,21 @@ fn getRegionFromPtPoint(pt_point: PtPoint) SteamError!Iapws97Region {
     return Iapws97Region.Region3;
 }
 
-fn getRegionFromSatQuery(sat_query: SatQuery) SteamError!struct { pt: PtPoint, region: Iapws97Region } {
-    const phase_region: SteamNonCriticalPhaseRegion = switch (sat_query) {
-        .SatTQuery => |sat| sat.phase_region,
-        .SatPQuery => |sat| sat.phase_region,
-    };
+const SatRegion = struct { pressure: Pa, temperature: K, region: Iapws97Region };
 
-    return switch (sat_query) {
-        .SatTQuery => |sat| blk: {
-            const p = try getSatPressure(sat.temperature.convertToSiUnit());
-            break :blk .{
-                .pt = PtPoint{
-                    .pressure = Pressure{ .pa = p },
-                    .temperature = sat.temperature,
-                },
-                .region = if (phase_region == .Liquid) Iapws97Region.Region1 else Iapws97Region.Region2,
-            };
-        },
-        .SatPQuery => |sat| blk: {
-            const t = try getSatTemperature(sat.pressure.convertToSiUnit());
-            break :blk .{
-                .pt = PtPoint{
-                    .pressure = sat.pressure,
-                    .temperature = Temperature{ .k = t },
-                },
-                .region = if (phase_region == .Liquid) Iapws97Region.Region1 else Iapws97Region.Region2,
-            };
-        },
+fn getRegionFromSatTemperature(phase_region: SteamNonCriticalPhaseRegion, temperature: K) SteamError!SatRegion {
+    return .{
+        .pressure = try getSatPressure(temperature),
+        .temperature = temperature,
+        .region = if (phase_region == .Liquid) Iapws97Region.Region1 else Iapws97Region.Region2,
+    };
+}
+
+fn getRegionFromSatPressure(phase_region: SteamNonCriticalPhaseRegion, pressure: Pa) SteamError!SatRegion {
+    return .{
+        .pressure = pressure,
+        .temperature = try getSatTemperature(pressure),
+        .region = if (phase_region == .Liquid) Iapws97Region.Region1 else Iapws97Region.Region2,
     };
 }
 
@@ -297,8 +285,8 @@ fn createEntryFromRegionPoint(
     specific_region_point: SpecificRegionPoint,
     phase_region: PhaseKind,
 ) PtvEntry {
-    const temperature = specific_region_point.point.temperature.convertToSiUnit().value;
-    const pressure = specific_region_point.point.pressure.convertToSiUnit().value;
+    const temperature = specific_region_point.temperature.value;
+    const pressure = specific_region_point.pressure.value;
     const pi = specific_region_point.pi;
     const tau = specific_region_point.tau;
     const gamma = specific_region_point.gamma;
@@ -335,11 +323,11 @@ fn createEntryFromRegionPoint(
     };
 }
 
-fn gibbsMethod(point: PtPoint) PtvEntry {
-    const pressure = point.pressure.convertToSiUnit().value;
-    const temperature = point.temperature.convertToSiUnit().value;
-    const pi = pressure / 16.53e6;
-    const tau = 1386.0 / temperature;
+fn gibbsMethod(pressure: Pa, temperature: K) PtvEntry {
+    const pressure_value = pressure.value;
+    const temperature_value = temperature.value;
+    const pi = pressure_value / 16.53e6;
+    const tau = 1386.0 / temperature_value;
 
     var gamma: f64 = 0.0;
     var gamma_pi: f64 = 0.0;
@@ -363,7 +351,8 @@ fn gibbsMethod(point: PtPoint) PtvEntry {
     }
 
     const specific_region_point = SpecificRegionPoint{
-        .point = point,
+        .pressure = pressure,
+        .temperature = temperature,
         .tau = tau,
         .pi = pi,
         .gamma = gamma,
@@ -380,13 +369,14 @@ fn gibbsMethod(point: PtPoint) PtvEntry {
 fn vaporMethod(
     tau: f64,
     tau_shift: f64,
-    point: PtPoint,
+    pressure: Pa,
+    temperature: K,
     ideal_points: []const JnRegionPoint,
     residual_points: []const IjnRegionPoint,
 ) PtvEntry {
-    const pressure = point.pressure.convertToSiUnit().value;
-    const temperature = point.temperature.convertToSiUnit().value;
-    const pi = pressure / 1.0e6;
+    const pressure_value = pressure.value;
+    const temperature_value = temperature.value;
+    const pi = pressure_value / 1.0e6;
 
     var gamma = @log(pi);
     var gamma_pi = @as(f64, 1) / pi;
@@ -418,8 +408,8 @@ fn vaporMethod(
     }
 
     const phase_info = blk: {
-        const above_critical_temp = temperature > constants.WATER_CRITICAL_TEMPERATURE.value;
-        const above_critical_pressure = pressure > constants.WATER_CRITICAL_PRESSURE.value;
+        const above_critical_temp = temperature_value > constants.WATER_CRITICAL_TEMPERATURE.value;
+        const above_critical_pressure = pressure_value > constants.WATER_CRITICAL_PRESSURE.value;
         if (above_critical_temp and above_critical_pressure) {
             break :blk PhaseKind{ .SupercriticalFluid = {} };
         } else if (above_critical_temp and !above_critical_pressure) {
@@ -430,7 +420,8 @@ fn vaporMethod(
     };
 
     const specific_region_point = SpecificRegionPoint{
-        .point = point,
+        .pressure = pressure,
+        .temperature = temperature,
         .tau = tau,
         .pi = pi,
         .gamma = gamma,
@@ -444,12 +435,12 @@ fn vaporMethod(
     return createEntryFromRegionPoint(specific_region_point, phase_info);
 }
 
-fn region3BySpecificVolume(pt_point: PtPoint, specific_volume: f64) PtvEntry {
+fn region3BySpecificVolume(temperature: K, specific_volume: f64) PtvEntry {
     const density = 1.0 / specific_volume;
     const n1 = steam_constants.REGION_3_N1.n;
     const delta = density / 322.0;
-    const temperature = pt_point.temperature.convertToSiUnit().value;
-    const tau = 647.096 / temperature;
+    const temperature_value = temperature.value;
+    const tau = 647.096 / temperature_value;
 
     var phi = n1 * @log(delta);
     var phi_delta = n1 / delta;
@@ -472,9 +463,9 @@ fn region3BySpecificVolume(pt_point: PtPoint, specific_volume: f64) PtvEntry {
         phi_delta_tau += n * i * pow(f64, delta, i - 1.0) * j * pow(f64, tau, j - 1.0);
     }
 
-    const pressure = phi_delta * delta * density * WATER_GAS_CONSTANT.value * temperature;
-    const internal_energy = tau * phi_tau * WATER_GAS_CONSTANT.value * temperature;
-    const enthalpy = (tau * phi_tau + delta * phi_delta) * WATER_GAS_CONSTANT.value * temperature;
+    const pressure = phi_delta * delta * density * WATER_GAS_CONSTANT.value * temperature_value;
+    const internal_energy = tau * phi_tau * WATER_GAS_CONSTANT.value * temperature_value;
+    const enthalpy = (tau * phi_tau + delta * phi_delta) * WATER_GAS_CONSTANT.value * temperature_value;
     const entropy = (tau * phi_tau - phi) * WATER_GAS_CONSTANT.value;
     const cv = -std.math.pow(f64, tau, 2.0) * phi_tau_tau * WATER_GAS_CONSTANT.value;
     const cp = (-std.math.pow(f64, tau, 2.0) * phi_tau_tau +
@@ -485,11 +476,11 @@ fn region3BySpecificVolume(pt_point: PtPoint, specific_volume: f64) PtvEntry {
     const speed_of_sound = std.math.sqrt(
         (2.0 * delta * phi_delta + std.math.pow(f64, delta, 2.0) * phi_delta_delta -
             std.math.pow(f64, delta * phi_delta - delta * tau * phi_delta_tau, 2.0) /
-                (std.math.pow(f64, tau, 2.0) * phi_tau_tau)) * WATER_GAS_CONSTANT.value * temperature,
+                (std.math.pow(f64, tau, 2.0) * phi_tau_tau)) * WATER_GAS_CONSTANT.value * temperature_value,
     );
 
     return PtvEntry{
-        .temperature = Temperature{ .k = K.init(temperature) },
+        .temperature = Temperature{ .k = K.init(temperature_value) },
         .pressure = Pressure{ .pa = Pa.init(pressure) },
         .phase_region = PhaseKind{ .SupercriticalFluid = {} },
         .internal_energy = EnergyPerMass{ .j_per_kg = JPerKg.init(internal_energy) },
@@ -502,36 +493,39 @@ fn region3BySpecificVolume(pt_point: PtPoint, specific_volume: f64) PtvEntry {
     };
 }
 
-fn region3Residual(region3_current_point: *PtPoint, x: f64) f64 {
-    const entry = region3BySpecificVolume(region3_current_point.*, x);
+const Region3Tuple = struct { pressure: Pa, temperature: K };
+fn region3Residual(region3_current_point: *Region3Tuple, x: f64) f64 {
+    const entry = region3BySpecificVolume(region3_current_point.*.temperature, x);
     return entry.pressure.convertToSiUnit().value -
-        region3_current_point.pressure.convertToSiUnit().value;
+        region3_current_point.*.pressure.value;
 }
 
-fn region3Method(point: PtPoint) SteamError!PtvEntry {
-    var c = root_finder.Closure(PtPoint){ .ctx = point, .func = region3Residual };
-    const specific_volume = root_finder.secantMethod(PtPoint, &c, 1.0 / 500.0, 1e-4) catch {
+fn region3Method(pressure: Pa, temperature: K) SteamError!PtvEntry {
+    var c = root_finder.Closure(Region3Tuple){ .ctx = .{ .pressure = pressure, .temperature = temperature }, .func = region3Residual };
+    const specific_volume = root_finder.secantMethod(Region3Tuple, &c, 1.0 / 500.0, 1e-4) catch {
         return SteamError.FailedToConverge;
     };
-    return region3BySpecificVolume(point, specific_volume);
+    return region3BySpecificVolume(temperature, specific_volume);
 }
 
-fn getEntryFromPtPoint(point: PtPoint, region: Iapws97Region) SteamError!PtvEntry {
-    const temperature = point.temperature.convertToSiUnit().value;
+fn getEntryFromPressureAndTemperature(pressure: Pa, temperature: K, region: Iapws97Region) SteamError!PtvEntry {
+    const temperature_value = temperature.value;
     return switch (region) {
-        .Region1, .Region4 => gibbsMethod(point),
+        .Region1, .Region4 => gibbsMethod(pressure, temperature),
         .Region2 => vaporMethod(
-            @as(f64, 540.0) / temperature,
+            @as(f64, 540.0) / temperature_value,
             @as(f64, 0.5),
-            point,
+            pressure,
+            temperature,
             steam_constants.REGION_2_IDEAL,
             steam_constants.REGION_2_RESIDUAL,
         ),
-        .Region3 => try region3Method(point),
+        .Region3 => try region3Method(pressure, temperature),
         .Region5 => vaporMethod(
-            @as(f64, 1000) / temperature,
+            @as(f64, 1000) / temperature_value,
             @as(f64, 0),
-            point,
+            pressure,
+            temperature,
             steam_constants.REGION_5_IDEAL,
             steam_constants.REGION_5_RESIDUAL,
         ),
@@ -685,34 +679,14 @@ fn interpolateEntry(
 }
 
 fn iteratePtEntrySolution(
-    pressure: Pa,
+    pressure_si: Pa,
     target_value: f64,
     comptime getPropValue: fn (PtvEntry) f64,
 ) SteamError!PtvEntry {
-    const liquid_query = SteamQuery{
-        .Sat = SatQuery{
-            .SatPQuery = .{
-                .pressure = Pressure{ .pa = pressure },
-                .phase_region = SteamNonCriticalPhaseRegion.Liquid,
-            },
-        },
-    };
+    const pressure = Pressure{ .pa = pressure_si };
 
-    const vapor_query = SteamQuery{
-        .Sat = SatQuery{
-            .SatPQuery = .{
-                .pressure = Pressure{ .pa = pressure },
-                .phase_region = SteamNonCriticalPhaseRegion.Vapor,
-            },
-        },
-    };
-
-    const liquid_entry_optional = getSteamTableEntry(liquid_query) catch |err| switch (err) {
-        else => null,
-    };
-    const vapor_entry_optional = getSteamTableEntry(vapor_query) catch |err| switch (err) {
-        else => null,
-    };
+    const liquid_entry_optional = getSteamEntryBySatPressure(.Liquid, pressure) catch null;
+    const vapor_entry_optional = getSteamEntryBySatPressure(.Vapor, pressure) catch null;
 
     if (liquid_entry_optional) |liquid_entry| {
         if (vapor_entry_optional) |vapor_entry| {
@@ -731,16 +705,10 @@ fn iteratePtEntrySolution(
         target: f64,
 
         fn eval(self: @This(), temperature: f64) f64 {
-            const query = SteamQuery{
-                .Pt = PtPoint{
-                    .pressure = Pressure{ .pa = self.pressure },
-                    .temperature = Temperature{ .k = K.init(temperature) },
-                },
-            };
-            const result = getSteamTableEntry(query) catch return std.math.nan(f64);
+            const result = getSteamEntryByPressureAndTemperature(.{ .pa = self.pressure }, .{ .k = K.init(temperature) }) catch return std.math.nan(f64);
             return getPropValue(result) - self.target;
         }
-    }{ .pressure = pressure, .target = target_value };
+    }{ .pressure = pressure_si, .target = target_value };
 
     const tol = 1e-5;
     if (tol < 0.0) return SteamError.FailedToConverge;
@@ -751,12 +719,7 @@ fn iteratePtEntrySolution(
     var y0 = ctx.eval(x0);
     if (!std.math.isFinite(y0)) return SteamError.FailedToConverge;
     if (@abs(y0) <= tol) {
-        return getSteamTableEntry(SteamQuery{
-            .Pt = PtPoint{
-                .pressure = Pressure{ .pa = pressure },
-                .temperature = Temperature{ .k = K.init(x0) },
-            },
-        });
+        return getSteamEntryByPressureAndTemperature(.{ .pa = pressure_si }, .{ .k = K.init(x0) });
     }
 
     const x1_shift: f64 = x0 * (1.0 + eps);
@@ -767,13 +730,7 @@ fn iteratePtEntrySolution(
     var tries: usize = 0;
     while (tries < max_iter) : (tries += 1) {
         if (@abs(y1) <= tol) {
-            const final_query = SteamQuery{
-                .Pt = PtPoint{
-                    .pressure = Pressure{ .pa = pressure },
-                    .temperature = Temperature{ .k = K.init(x1) },
-                },
-            };
-            return getSteamTableEntry(final_query);
+            return getSteamEntryByPressureAndTemperature(.{ .pa = pressure_si }, .{ .k = K.init(x1) });
         }
 
         var x2: f64 = undefined;
@@ -790,13 +747,7 @@ fn iteratePtEntrySolution(
         const y2 = ctx.eval(x2);
         if (!std.math.isFinite(y2)) return SteamError.FailedToConverge;
         if (@abs(y2) <= tol) {
-            const final_query = SteamQuery{
-                .Pt = PtPoint{
-                    .pressure = Pressure{ .pa = pressure },
-                    .temperature = Temperature{ .k = K.init(x2) },
-                },
-            };
-            return getSteamTableEntry(final_query);
+            return getSteamEntryByPressureAndTemperature(.{ .pa = pressure_si }, .{ .k = K.init(x2) });
         }
 
         x0 = x1;
@@ -808,37 +759,65 @@ fn iteratePtEntrySolution(
     return SteamError.FailedToConverge;
 }
 
-pub fn getSteamTableEntry(query: SteamQuery) SteamError!PtvEntry {
-    try checkIfOutOfRange(query);
+pub fn getSteamEntryByPressureAndTemperature(pressure: Pressure, temperature: Temperature) SteamError!PtvEntry {
+    const pressure_si = pressure.convertToSiUnit();
+    const temperature_si = temperature.convertToSiUnit();
 
-    return switch (query) {
-        .Pt => |point| blk: {
-            const region = try getRegionFromPtPoint(point);
-            break :blk try getEntryFromPtPoint(point, region);
-        },
-        .Sat => |sat_query| blk: {
-            const result = try getRegionFromSatQuery(sat_query);
-            break :blk try getEntryFromPtPoint(result.pt, result.region);
-        },
-        .EntropyP => |data| try iteratePtEntrySolution(
-            data.pressure.convertToSiUnit(),
-            data.entropy.convertToSiUnit().value,
-            struct {
-                fn get(entry: PtvEntry) f64 {
-                    return entry.entropy.convertToSiUnit().value;
-                }
-            }.get,
-        ),
-        .EnthalpyP => |data| try iteratePtEntrySolution(
-            data.pressure.convertToSiUnit(),
-            data.enthalpy.convertToSiUnit().value,
-            struct {
-                fn get(entry: PtvEntry) f64 {
-                    return entry.enthalpy.convertToSiUnit().value;
-                }
-            }.get,
-        ),
-    };
+    try checkIfOutOfRange(pressure_si, temperature_si);
+
+    const region = try getRegionFromPressureAndTemperature(pressure_si, temperature_si);
+
+    return try getEntryFromPressureAndTemperature(pressure_si, temperature_si, region);
+}
+
+pub fn getSteamEntryBySatPressure(phase_region: SteamNonCriticalPhaseRegion, pressure: Pressure) SteamError!PtvEntry {
+    const pressure_si = pressure.convertToSiUnit();
+
+    try checkIfOutOfRange(pressure_si, null);
+
+    const result = try getRegionFromSatPressure(phase_region, pressure_si);
+
+    return try getEntryFromPressureAndTemperature(result.pressure, result.temperature, result.region);
+}
+
+pub fn getSteamEntryBySatTemperature(phase_region: SteamNonCriticalPhaseRegion, temperature: Temperature) SteamError!PtvEntry {
+    const temperature_si = temperature.convertToSiUnit();
+
+    try checkIfOutOfRange(null, temperature_si);
+
+    const result = try getRegionFromSatTemperature(phase_region, temperature_si);
+
+    return try getEntryFromPressureAndTemperature(result.pressure, result.temperature, result.region);
+}
+
+pub fn getSteamEntryByPressureAndEntropy(pressure: Pressure, entropy: EnergyPerMassTemperature) SteamError!PtvEntry {
+    const pressure_si = pressure.convertToSiUnit();
+    try checkIfOutOfRange(pressure_si, null);
+
+    return try iteratePtEntrySolution(
+        pressure_si,
+        entropy.convertToSiUnit().value,
+        struct {
+            fn get(entry: PtvEntry) f64 {
+                return entry.entropy.convertToSiUnit().value;
+            }
+        }.get,
+    );
+}
+
+pub fn getSteamEntryByPressureAndEnthalpy(pressure: Pressure, enthalpy: EnergyPerMass) SteamError!PtvEntry {
+    const pressure_si = pressure.convertToSiUnit();
+    try checkIfOutOfRange(pressure_si, null);
+
+    return try iteratePtEntrySolution(
+        pressure_si,
+        enthalpy.convertToSiUnit().value,
+        struct {
+            fn get(entry: PtvEntry) f64 {
+                return entry.enthalpy.convertToSiUnit().value;
+            }
+        }.get,
+    );
 }
 
 fn expectPtvPointsAreEqual(expected: PtvEntry, actual: PtvEntry) !void {
@@ -874,11 +853,6 @@ fn expectPtvPointsAreEqual(expected: PtvEntry, actual: PtvEntry) !void {
 }
 
 test "Pressure and Temperature Query Test Region 3" {
-    const query = SteamQuery{ .Pt = PtPoint{
-        .temperature = Temperature{ .k = K.init(750) },
-        .pressure = Pressure{ .kpa = KPa.init(78.309563916917e3) },
-    } };
-
     const expected = PtvEntry{
         .temperature = Temperature{ .k = K.init(750) },
         .pressure = Pressure{ .kpa = KPa.init(78.309563916917e3) },
@@ -892,18 +866,11 @@ test "Pressure and Temperature Query Test Region 3" {
         .specific_volume = SpecificVolume{ .m3_per_kg = M3PerKg.init(@as(f64, 1) / @as(f64, 500)) },
     };
 
-    const actual = try getSteamTableEntry(query);
+    const actual = try getSteamEntryByPressureAndTemperature(expected.pressure, expected.temperature);
     try expectPtvPointsAreEqual(expected, actual);
 }
 
 test "Pressure and Temperature Query Test Region 1" {
-    const query = SteamQuery{
-        .Pt = PtPoint{
-            .temperature = Temperature{ .k = K.init(473.15) },
-            .pressure = Pressure{ .pa = Pa.init(40e6) },
-        },
-    };
-
     const expected = PtvEntry{
         .temperature = Temperature{ .k = K.init(473.15) },
         .pressure = Pressure{ .pa = Pa.init(40e6) },
@@ -917,18 +884,11 @@ test "Pressure and Temperature Query Test Region 1" {
         .specific_volume = SpecificVolume{ .m3_per_kg = M3PerKg.init(0.001122406088) },
     };
 
-    const actual = try getSteamTableEntry(query);
+    const actual = try getSteamEntryByPressureAndTemperature(expected.pressure, expected.temperature);
     try expectPtvPointsAreEqual(expected, actual);
 }
 
 test "Pressure and Temperature Query Test Region 5" {
-    const query = SteamQuery{
-        .Pt = PtPoint{
-            .temperature = Temperature{ .k = K.init(2000.0) },
-            .pressure = Pressure{ .pa = Pa.init(30e6) },
-        },
-    };
-
     const expected = PtvEntry{
         .temperature = Temperature{ .k = K.init(2000.0) },
         .pressure = Pressure{ .pa = Pa.init(30e6) },
@@ -942,18 +902,11 @@ test "Pressure and Temperature Query Test Region 5" {
         .specific_volume = SpecificVolume{ .m3_per_kg = M3PerKg.init(0.03113852187) },
     };
 
-    const actual = try getSteamTableEntry(query);
+    const actual = try getSteamEntryByPressureAndTemperature(expected.pressure, expected.temperature);
     try expectPtvPointsAreEqual(expected, actual);
 }
 
 test "Pressure and Temperature Query Test Region 2" {
-    const query = SteamQuery{
-        .Pt = PtPoint{
-            .temperature = Temperature{ .k = K.init(823.15) },
-            .pressure = Pressure{ .pa = Pa.init(14e6) },
-        },
-    };
-
     const expected = PtvEntry{
         .temperature = Temperature{ .k = K.init(823.15) },
         .pressure = Pressure{ .pa = Pa.init(14e6) },
@@ -967,20 +920,11 @@ test "Pressure and Temperature Query Test Region 2" {
         .specific_volume = SpecificVolume{ .m3_per_kg = M3PerKg.init(0.024763222774) },
     };
 
-    const actual = try getSteamTableEntry(query);
+    const actual = try getSteamEntryByPressureAndTemperature(expected.pressure, expected.temperature);
     try expectPtvPointsAreEqual(expected, actual);
 }
 
 test "Saturated Pressure Liquid Query Test Region 1" {
-    const query = SteamQuery{
-        .Sat = SatQuery{
-            .SatPQuery = .{
-                .pressure = Pressure{ .pa = Pa.init(0.2e6) },
-                .phase_region = SteamNonCriticalPhaseRegion.Liquid,
-            },
-        },
-    };
-
     const expected = PtvEntry{
         .temperature = Temperature{ .k = K.init(393.361545936488) },
         .pressure = Pressure{ .pa = Pa.init(0.2e6) },
@@ -994,20 +938,11 @@ test "Saturated Pressure Liquid Query Test Region 1" {
         .specific_volume = SpecificVolume{ .m3_per_kg = M3PerKg.init(0.00106051840643552) },
     };
 
-    const actual = try getSteamTableEntry(query);
+    const actual = try getSteamEntryBySatPressure(.Liquid, expected.pressure);
     try expectPtvPointsAreEqual(expected, actual);
 }
 
 test "Saturated Pressure Vapor Query Test Region 2" {
-    const query = SteamQuery{
-        .Sat = SatQuery{
-            .SatPQuery = .{
-                .pressure = Pressure{ .pa = Pa.init(0.2e6) },
-                .phase_region = SteamNonCriticalPhaseRegion.Vapor,
-            },
-        },
-    };
-
     const expected = PtvEntry{
         .temperature = Temperature{ .k = K.init(393.361545936488) },
         .pressure = Pressure{ .pa = Pa.init(0.2e6) },
@@ -1021,20 +956,11 @@ test "Saturated Pressure Vapor Query Test Region 2" {
         .specific_volume = SpecificVolume{ .m3_per_kg = M3PerKg.init(0.885735065081644) },
     };
 
-    const actual = try getSteamTableEntry(query);
+    const actual = try getSteamEntryBySatPressure(.Vapor, expected.pressure);
     try expectPtvPointsAreEqual(expected, actual);
 }
 
 test "Saturated Temperature Liquid Query Test Region 1" {
-    const query = SteamQuery{
-        .Sat = SatQuery{
-            .SatTQuery = .{
-                .temperature = Temperature{ .k = K.init(393.361545936488) },
-                .phase_region = SteamNonCriticalPhaseRegion.Liquid,
-            },
-        },
-    };
-
     const expected = PtvEntry{
         .temperature = Temperature{ .k = K.init(393.361545936488) },
         .pressure = Pressure{ .pa = Pa.init(0.2e6) },
@@ -1048,20 +974,11 @@ test "Saturated Temperature Liquid Query Test Region 1" {
         .specific_volume = SpecificVolume{ .m3_per_kg = M3PerKg.init(0.00106051840643552) },
     };
 
-    const actual = try getSteamTableEntry(query);
+    const actual = try getSteamEntryBySatTemperature(.Liquid, expected.temperature);
     try expectPtvPointsAreEqual(expected, actual);
 }
 
 test "Saturated Temperature Vapor Query Test Region 2" {
-    const query = SteamQuery{
-        .Sat = SatQuery{
-            .SatTQuery = .{
-                .temperature = Temperature{ .k = K.init(393.361545936488) },
-                .phase_region = SteamNonCriticalPhaseRegion.Vapor,
-            },
-        },
-    };
-
     const expected = PtvEntry{
         .temperature = Temperature{ .k = K.init(393.361545936488) },
         .pressure = Pressure{ .pa = Pa.init(0.2e6) },
@@ -1075,18 +992,11 @@ test "Saturated Temperature Vapor Query Test Region 2" {
         .specific_volume = SpecificVolume{ .m3_per_kg = M3PerKg.init(0.885735065081644) },
     };
 
-    const actual = try getSteamTableEntry(query);
+    const actual = try getSteamEntryBySatTemperature(.Vapor, expected.temperature);
     try expectPtvPointsAreEqual(expected, actual);
 }
 
 test "Entropy and Pressure Query Test Region 3" {
-    const query = SteamQuery{
-        .EntropyP = .{
-            .entropy = EnergyPerMassTemperature{ .j_per_kg_k = JPerKgK.init(4.469719056217e3) },
-            .pressure = Pressure{ .pa = Pa.init(78.309563916917e6) },
-        },
-    };
-
     const expected = PtvEntry{
         .temperature = Temperature{ .k = K.init(750) },
         .pressure = Pressure{ .kpa = KPa.init(78.309563916917e3) },
@@ -1100,18 +1010,11 @@ test "Entropy and Pressure Query Test Region 3" {
         .specific_volume = SpecificVolume{ .m3_per_kg = M3PerKg.init(@as(f64, 1) / @as(f64, 500)) },
     };
 
-    const actual = try getSteamTableEntry(query);
+    const actual = try getSteamEntryByPressureAndEntropy(expected.pressure, expected.entropy);
     try expectPtvPointsAreEqual(expected, actual);
 }
 
 test "Entropy and Pressure Query Test Region 5" {
-    const query = SteamQuery{
-        .EntropyP = .{
-            .entropy = EnergyPerMassTemperature{ .j_per_kg_k = JPerKgK.init(8.536405231138e3) },
-            .pressure = Pressure{ .pa = Pa.init(30e6) },
-        },
-    };
-
     const expected = PtvEntry{
         .temperature = Temperature{ .k = K.init(2000.0) },
         .pressure = Pressure{ .pa = Pa.init(30e6) },
@@ -1125,18 +1028,11 @@ test "Entropy and Pressure Query Test Region 5" {
         .specific_volume = SpecificVolume{ .m3_per_kg = M3PerKg.init(0.03113852187) },
     };
 
-    const actual = try getSteamTableEntry(query);
+    const actual = try getSteamEntryByPressureAndEntropy(expected.pressure, expected.entropy);
     try expectPtvPointsAreEqual(expected, actual);
 }
 
 test "Entropy and Pressure Query Test Region 2" {
-    const query = SteamQuery{
-        .EntropyP = .{
-            .entropy = EnergyPerMassTemperature{ .j_per_kg_k = JPerKgK.init(6.564768889364e3) },
-            .pressure = Pressure{ .pa = Pa.init(14e6) },
-        },
-    };
-
     const expected = PtvEntry{
         .temperature = Temperature{ .k = K.init(823.15) },
         .pressure = Pressure{ .pa = Pa.init(14e6) },
@@ -1150,18 +1046,11 @@ test "Entropy and Pressure Query Test Region 2" {
         .specific_volume = SpecificVolume{ .m3_per_kg = M3PerKg.init(0.024763222774) },
     };
 
-    const actual = try getSteamTableEntry(query);
+    const actual = try getSteamEntryByPressureAndEntropy(expected.pressure, expected.entropy);
     try expectPtvPointsAreEqual(expected, actual);
 }
 
 test "Entropy and Pressure Query Test Composite" {
-    const query = SteamQuery{
-        .EntropyP = .{
-            .entropy = EnergyPerMassTemperature{ .j_per_kg_k = JPerKgK.init(6.6858e3) },
-            .pressure = Pressure{ .pa = Pa.init(10e3) },
-        },
-    };
-
     const expected = PtvEntry{
         .temperature = Temperature{ .k = K.init(318.957548207023) },
         .pressure = Pressure{ .pa = Pa.init(10e3) },
@@ -1179,16 +1068,11 @@ test "Entropy and Pressure Query Test Composite" {
         .specific_volume = SpecificVolume{ .m3_per_kg = M3PerKg.init(1.0 / 193.16103883) },
     };
 
-    const actual = try getSteamTableEntry(query);
+    const actual = try getSteamEntryByPressureAndEntropy(expected.pressure, expected.entropy);
     try expectPtvPointsAreEqual(expected, actual);
 }
 
 test "Enthalpy and Pressure Query Test Region 3" {
-    const query = SteamQuery{ .EnthalpyP = .{
-        .enthalpy = EnergyPerMass{ .j_per_kg = JPerKg.init(2258.688445460262e3) },
-        .pressure = Pressure{ .kpa = KPa.init(78.309563916917e3) },
-    } };
-
     const expected = PtvEntry{
         .temperature = Temperature{ .k = K.init(750) },
         .pressure = Pressure{ .kpa = KPa.init(78.309563916917e3) },
@@ -1202,18 +1086,11 @@ test "Enthalpy and Pressure Query Test Region 3" {
         .specific_volume = SpecificVolume{ .m3_per_kg = M3PerKg.init(@as(f64, 1) / @as(f64, 500)) },
     };
 
-    const actual = try getSteamTableEntry(query);
+    const actual = try getSteamEntryByPressureAndEnthalpy(expected.pressure, expected.enthalpy);
     try expectPtvPointsAreEqual(expected, actual);
 }
 
 test "Enthalpy and Pressure Query Test Region 1" {
-    const query = SteamQuery{
-        .EnthalpyP = .{
-            .enthalpy = EnergyPerMass{ .j_per_kg = JPerKg.init(870.124259682489e3) },
-            .pressure = Pressure{ .pa = Pa.init(40e6) },
-        },
-    };
-
     const expected = PtvEntry{
         .temperature = Temperature{ .k = K.init(473.15) },
         .pressure = Pressure{ .pa = Pa.init(40e6) },
@@ -1227,18 +1104,11 @@ test "Enthalpy and Pressure Query Test Region 1" {
         .specific_volume = SpecificVolume{ .m3_per_kg = M3PerKg.init(0.001122406088) },
     };
 
-    const actual = try getSteamTableEntry(query);
+    const actual = try getSteamEntryByPressureAndEnthalpy(expected.pressure, expected.enthalpy);
     try expectPtvPointsAreEqual(expected, actual);
 }
 
 test "Enthalpy and Pressure Query Test Region 5" {
-    const query = SteamQuery{
-        .EnthalpyP = .{
-            .enthalpy = EnergyPerMass{ .j_per_kg = JPerKg.init(6571.226038618478e3) },
-            .pressure = Pressure{ .pa = Pa.init(30e6) },
-        },
-    };
-
     const expected = PtvEntry{
         .temperature = Temperature{ .k = K.init(2000.0) },
         .pressure = Pressure{ .pa = Pa.init(30e6) },
@@ -1252,18 +1122,11 @@ test "Enthalpy and Pressure Query Test Region 5" {
         .specific_volume = SpecificVolume{ .m3_per_kg = M3PerKg.init(0.03113852187) },
     };
 
-    const actual = try getSteamTableEntry(query);
+    const actual = try getSteamEntryByPressureAndEnthalpy(expected.pressure, expected.enthalpy);
     try expectPtvPointsAreEqual(expected, actual);
 }
 
 test "Enthalpy and Pressure Query Test Region 2" {
-    const query = SteamQuery{
-        .EnthalpyP = .{
-            .enthalpy = EnergyPerMass{ .j_per_kg = JPerKg.init(3460.987255128561e3) },
-            .pressure = Pressure{ .pa = Pa.init(14e6) },
-        },
-    };
-
     const expected = PtvEntry{
         .temperature = Temperature{ .k = K.init(823.15) },
         .pressure = Pressure{ .pa = Pa.init(14e6) },
@@ -1277,18 +1140,11 @@ test "Enthalpy and Pressure Query Test Region 2" {
         .specific_volume = SpecificVolume{ .m3_per_kg = M3PerKg.init(0.024763222774) },
     };
 
-    const actual = try getSteamTableEntry(query);
+    const actual = try getSteamEntryByPressureAndEnthalpy(expected.pressure, expected.enthalpy);
     try expectPtvPointsAreEqual(expected, actual);
 }
 
 test "Enthalpy and Pressure Query Test Composite" {
-    const query = SteamQuery{
-        .EnthalpyP = .{
-            .enthalpy = EnergyPerMass{ .j_per_kg = JPerKg.init(2117222.94886314) },
-            .pressure = Pressure{ .pa = Pa.init(10e3) },
-        },
-    };
-
     const expected = PtvEntry{
         .temperature = Temperature{ .k = K.init(318.957548207023) },
         .pressure = Pressure{ .pa = Pa.init(10e3) },
@@ -1306,86 +1162,70 @@ test "Enthalpy and Pressure Query Test Composite" {
         .specific_volume = SpecificVolume{ .m3_per_kg = M3PerKg.init(1.0 / 193.16103883) },
     };
 
-    const actual = try getSteamTableEntry(query);
+    const actual = try getSteamEntryByPressureAndEnthalpy(expected.pressure, expected.enthalpy);
     try expectPtvPointsAreEqual(expected, actual);
 }
 
 test "Low Temperature Error Test 1" {
-    const query = SteamQuery{ .Pt = .{
-        .temperature = Temperature{ .k = K.init(273.0) },
-        .pressure = Pressure{ .pa = Pa.init(40e6) },
-    } };
+    const temperature = Temperature{ .k = K.init(273.0) };
+    const pressure = Pressure{ .pa = Pa.init(40e6) };
 
-    const actual = getSteamTableEntry(query);
+    const actual = getSteamEntryByPressureAndTemperature(pressure, temperature);
     try std.testing.expectError(SteamError.TemperatureLow, actual);
 }
 
 test "Low Temperature Error Test 2" {
-    const query = SteamQuery{ .Pt = .{
-        .temperature = Temperature{ .k = K.init(273.0) },
-        .pressure = Pressure{ .pa = Pa.init(60e6) },
-    } };
+    const temperature = Temperature{ .k = K.init(273.0) };
+    const pressure = Pressure{ .pa = Pa.init(60e6) };
 
-    const actual = getSteamTableEntry(query);
+    const actual = getSteamEntryByPressureAndTemperature(pressure, temperature);
     try std.testing.expectError(SteamError.TemperatureLow, actual);
 }
 
 test "High Temperature Error Test 1" {
-    const query = SteamQuery{ .Pt = .{
-        .temperature = Temperature{ .c = C.init(2001) },
-        .pressure = Pressure{ .pa = Pa.init(40e6) },
-    } };
+    const temperature = Temperature{ .c = C.init(2001) };
+    const pressure = Pressure{ .pa = Pa.init(40e6) };
 
-    const actual = getSteamTableEntry(query);
+    const actual = getSteamEntryByPressureAndTemperature(pressure, temperature);
     try std.testing.expectError(SteamError.TemperatureHigh, actual);
 }
 
 test "High Temperature Error Test 2" {
-    const query = SteamQuery{ .Pt = .{
-        .temperature = Temperature{ .c = C.init(801) },
-        .pressure = Pressure{ .pa = Pa.init(60e6) },
-    } };
+    const temperature = Temperature{ .c = C.init(801) };
+    const pressure = Pressure{ .pa = Pa.init(60e6) };
 
-    const actual = getSteamTableEntry(query);
+    const actual = getSteamEntryByPressureAndTemperature(pressure, temperature);
     try std.testing.expectError(SteamError.TemperatureHigh, actual);
 }
 
 test "Low Pressure Error Test 1" {
-    const query = SteamQuery{ .Pt = .{
-        .temperature = Temperature{ .c = C.init(799) },
-        .pressure = Pressure{ .pa = Pa.init(-1) },
-    } };
+    const temperature = Temperature{ .c = C.init(799) };
+    const pressure = Pressure{ .pa = Pa.init(-1) };
 
-    const actual = getSteamTableEntry(query);
+    const actual = getSteamEntryByPressureAndTemperature(pressure, temperature);
     try std.testing.expectError(SteamError.PressureLow, actual);
 }
 
 test "Low Pressure Error Test 2" {
-    const query = SteamQuery{ .Pt = .{
-        .temperature = Temperature{ .c = C.init(801) },
-        .pressure = Pressure{ .pa = Pa.init(-1) },
-    } };
+    const temperature = Temperature{ .c = C.init(801) };
+    const pressure = Pressure{ .pa = Pa.init(-1) };
 
-    const actual = getSteamTableEntry(query);
+    const actual = getSteamEntryByPressureAndTemperature(pressure, temperature);
     try std.testing.expectError(SteamError.PressureLow, actual);
 }
 
 test "High Temperature Error Test 3" {
-    const query = SteamQuery{ .Pt = .{
-        .temperature = Temperature{ .c = C.init(801) },
-        .pressure = Pressure{ .pa = Pa.init(51e6) },
-    } };
+    const temperature = Temperature{ .c = C.init(801) };
+    const pressure = Pressure{ .pa = Pa.init(51e6) };
 
-    const actual = getSteamTableEntry(query);
+    const actual = getSteamEntryByPressureAndTemperature(pressure, temperature);
     try std.testing.expectError(SteamError.TemperatureHigh, actual);
 }
 
 test "High Pressure Error Test 3" {
-    const query = SteamQuery{ .Pt = .{
-        .temperature = Temperature{ .c = C.init(799) },
-        .pressure = Pressure{ .pa = Pa.init(101e6) },
-    } };
+    const temperature = Temperature{ .c = C.init(799) };
+    const pressure = Pressure{ .pa = Pa.init(101e6) };
 
-    const actual = getSteamTableEntry(query);
+    const actual = getSteamEntryByPressureAndTemperature(pressure, temperature);
     try std.testing.expectError(SteamError.PressureHigh, actual);
 }
