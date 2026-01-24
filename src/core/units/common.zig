@@ -37,3 +37,6 @@ pub const energy_per_mass_conversion = 2.2 * 1055.06;
 pub const energy_per_mass_temp_conversion = 2.2 * 1055.06 * 5.0 / 9.0;
 pub const specific_volume_conversion = 2.20462 / 35.3147;
 pub const density_conversion = 35.3147 / 2.20462;
+pub const watts_per_kw = 1000.0;
+pub const watts_per_hp = 745.699872;
+pub const watts_per_btu_hr = 1055.06 / 3600.0;

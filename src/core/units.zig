@@ -10,6 +10,7 @@ const temperature_mod = @import("units/temperature.zig");
 const pressure_mod = @import("units/pressure.zig");
 const energy_per_mass_mod = @import("units/energy_per_mass.zig");
 const energy_per_mass_temperature_mod = @import("units/energy_per_mass_temperature.zig");
+const power_mod = @import("units/power.zig");
 const velocity_mod = @import("units/velocity.zig");
 const specific_volume_mod = @import("units/specific_volume.zig");
 const density_mod = @import("units/density.zig");
@@ -37,6 +38,9 @@ pub const energy_per_mass_conversion = common.energy_per_mass_conversion;
 pub const energy_per_mass_temp_conversion = common.energy_per_mass_temp_conversion;
 pub const specific_volume_conversion = common.specific_volume_conversion;
 pub const density_conversion = common.density_conversion;
+pub const watts_per_kw = common.watts_per_kw;
+pub const watts_per_hp = common.watts_per_hp;
+pub const watts_per_btu_hr = common.watts_per_btu_hr;
 
 pub const M = length_mod.M;
 pub const Km = length_mod.Km;
@@ -86,6 +90,12 @@ pub const JPerKgK = energy_per_mass_temperature_mod.JPerKgK;
 pub const BtuPerLbsmR = energy_per_mass_temperature_mod.BtuPerLbsmR;
 pub const EnergyPerMassTemperature = energy_per_mass_temperature_mod.EnergyPerMassTemperature;
 
+pub const W = power_mod.W;
+pub const kW = power_mod.kW;
+pub const Hp = power_mod.Hp;
+pub const BtuPerHr = power_mod.BtuPerHr;
+pub const Power = power_mod.Power;
+
 pub const MPerSec = velocity_mod.MPerSec;
 pub const FtPerSec = velocity_mod.FtPerSec;
 pub const Velocity = velocity_mod.Velocity;
@@ -116,6 +126,18 @@ test "area conversion" {
     try std.testing.expectApproxEqAbs(1.0, one_m2.value, 1e-9);
     try std.testing.expectApproxEqAbs(1.0 / feet_per_meter_sq, one_ft2.value, 1e-6);
     try std.testing.expectApproxEqAbs(1.0 / inches_per_meter_sq, one_in2.value, 1e-6);
+}
+
+test "power conversion" {
+    const one_watt = (Power{ .w = W.init(1.0) }).convertToSiUnit();
+    const one_kw = (Power{ .kw = kW.init(1.0) }).convertToSiUnit();
+    const one_hp = (Power{ .hp = Hp.init(1.0) }).convertToSiUnit();
+    const one_btu_hr = (Power{ .btu_per_hr = BtuPerHr.init(1.0) }).convertToSiUnit();
+
+    try std.testing.expectApproxEqAbs(1.0, one_watt.value, 1e-9);
+    try std.testing.expectApproxEqAbs(watts_per_kw, one_kw.value, 1e-9);
+    try std.testing.expectApproxEqAbs(watts_per_hp, one_hp.value, 1e-6);
+    try std.testing.expectApproxEqAbs(watts_per_btu_hr, one_btu_hr.value, 1e-9);
 }
 
 test "volume conversion" {
