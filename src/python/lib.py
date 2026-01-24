@@ -3,7 +3,7 @@ from __future__ import annotations
 import ctypes
 import os
 from collections.abc import Iterator
-from ctypes import c_int, c_int32
+from ctypes import c_double, c_int, c_int32
 from ctypes.util import find_library
 from pathlib import Path
 
@@ -76,4 +76,27 @@ def add2(a: int, b: int) -> AddResult:
     return result
 
 
-__all__ = ["add", "add2"]
+class SteamResult(ctypes.Structure):
+    _fields_ = [
+        ("ok", ctypes.c_bool),
+        ("err_code", ctypes.c_int),
+        ("pressure", ctypes.c_double),
+        ("temperature", ctypes.c_double),
+    ]
+
+
+_LIB.getSteamEntryByPressureAndTemperature.argtypes = (c_double, c_double)
+_LIB.getSteamEntryByPressureAndTemperature.restype = SteamResult
+
+
+def getSteamEntryByPressureAndTemperature(
+    pressure: float, temperature: float
+) -> SteamResult:
+    """Return the steam entry computed by the Zig implementation."""
+    result = _LIB.getSteamEntryByPressureAndTemperature(
+        c_double(pressure), c_double(temperature)
+    )
+    return result
+
+
+__all__ = ["add", "add2", "getSteamEntryByPressureAndTemperature"]
