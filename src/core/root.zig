@@ -2,6 +2,7 @@
 const std = @import("std");
 const iapws97 = @import("thermo/steam/iapws97.zig");
 const thermo_c = @import("thermo/thermo-c.zig");
+const rankine_cycle = @import("thermo/steam/rankine-cycle.zig");
 const units = @import("units.zig");
 
 // Need to do this do that `zig build test` will actually run the tests!
@@ -9,6 +10,7 @@ test {
     _ = units;
     _ = iapws97;
     _ = thermo_c;
+    _ = rankine_cycle;
 }
 
 // need to do this to get zig to export the function in the library

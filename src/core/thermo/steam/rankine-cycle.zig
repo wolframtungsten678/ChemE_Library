@@ -1,3 +1,4 @@
+const std = @import("std");
 const iapws97 = @import("iapws97.zig");
 const units = @import("../../units.zig");
 
@@ -25,7 +26,7 @@ pub const RankineCycleResult = struct {
 
 pub fn rankineCycle(args: RankineCycleArgs) !RankineCycleResult {
     const boiler_conditions = try iapws97.getSteamEntryByPressureAndTemperature(args.boilerPressure, args.boilerTemperature);
-    const condenser_liquid_conditions = try iapws97.getSteamEntryBySatPressure(args.condenserPressure, iapws97.NonCriticalPhaseRegion.Liquid);
+    const condenser_liquid_conditions = try iapws97.getSteamEntryBySatPressure(iapws97.SteamNonCriticalPhaseRegion.Liquid, args.condenserPressure);
 
     const condenser_conditions = try iapws97.getSteamEntryByPressureAndEntropy(boiler_conditions.pressure, boiler_conditions.entropy);
 
@@ -42,7 +43,7 @@ pub fn rankineCycle(args: RankineCycleArgs) !RankineCycleResult {
 
     const pump_work_raw = ((condenser_sv * (boiler_pressure - condenser_pressure)) * 1e-3) / pump_efficiency;
 
-    const pump_work = units.EnergyPerMass(units.JPerKg.init(pump_work_raw));
+    const pump_work = units.EnergyPerMass{ .j_per_kg = units.JPerKg.init(pump_work_raw) };
     const condenser_enthalpy_raw = condenser_liquid_conditions.enthalpy.convertToSiUnit().value;
     // TODO: make this a better name
     const boiler_enthalpy_raw_better_name = condenser_enthalpy_raw + pump_work_raw;
@@ -50,30 +51,30 @@ pub fn rankineCycle(args: RankineCycleArgs) !RankineCycleResult {
     const boiler_enthalpy_raw = boiler_conditions.enthalpy.convertToSiUnit().value;
     const boiler_work_raw = boiler_enthalpy_raw - boiler_enthalpy_raw_better_name;
 
-    const boiler_work = units.EnergyPerMass(units.JPerKg.init(boiler_work_raw));
+    const boiler_work = units.EnergyPerMass{ .j_per_kg = units.JPerKg.init(boiler_work_raw) };
 
     const turbine_efficiency = args.turbineEfficiency;
     if (turbine_efficiency < 0.0 or turbine_efficiency > 1.0) return error.InvalidTurbineEfficiency;
 
     const turbine_work_raw = -(condenser_enthalpy_raw - boiler_enthalpy_raw) * turbine_efficiency;
-    const turbine_work = units.EnergyPerMass(units.JPerKg.init(turbine_work_raw));
+    const turbine_work = units.EnergyPerMass{ .j_per_kg = units.JPerKg.init(turbine_work_raw) };
 
     const condenser_work_raw = -(condenser_enthalpy_raw - (boiler_enthalpy_raw - turbine_work_raw));
-    const condenser_work = units.EnergyPerMass(units.JPerKg.init(condenser_work_raw));
+    const condenser_work = units.EnergyPerMass{ .j_per_kg = units.JPerKg.init(condenser_work_raw) };
 
     const net_work_raw = turbine_work_raw - pump_work_raw;
-    const net_work = units.EnergyPerMass(units.JPerKg.init(net_work_raw));
+    const net_work = units.EnergyPerMass{ .j_per_kg = units.JPerKg.init(net_work_raw) };
     const thermal_efficiency = @abs(turbine_work_raw) / boiler_work_raw;
     const power_requirement_raw = args.powerRequirement.convertToSiUnit().value;
 
     const steam_rate_raw = power_requirement_raw / net_work_raw;
-    const steam_rate = units.MassFlowRate(units.KgPerSec.init(steam_rate_raw));
+    const steam_rate = units.MassFlowRate{ .kg_per_sec = units.KgPerSec.init(steam_rate_raw) };
 
     const boiler_heat_transfer_rate_raw = steam_rate_raw * boiler_work_raw;
-    const boiler_heat_transfer_rate = units.MassFlowRate(units.KgPerSec.init(boiler_heat_transfer_rate_raw));
+    const boiler_heat_transfer_rate = units.MassFlowRate{ .kg_per_sec = units.KgPerSec.init(boiler_heat_transfer_rate_raw) };
 
     const condenser_heat_transfer_rate_raw = steam_rate_raw * condenser_work_raw;
-    const condenser_heat_transfer_rate = units.MassFlowRate(units.KgPerSec.init(condenser_heat_transfer_rate_raw));
+    const condenser_heat_transfer_rate = units.MassFlowRate{ .kg_per_sec = units.KgPerSec.init(condenser_heat_transfer_rate_raw) };
 
     return RankineCycleResult{
         .condenserSteamQuality = condenser_steam_quality,
@@ -96,3 +97,41 @@ pub fn rankineCycle(args: RankineCycleArgs) !RankineCycleResult {
 // PumpEfficiency.Value = 0.75;
 // TurbineEfficiency.Value = 0.75;
 // PowerRequirement.Value = 80e3;
+test "rankine cycle example inputs" {
+    const args = RankineCycleArgs{
+        .boilerTemperature = units.Temperature{ .k = units.K.init(500.0) },
+        .boilerPressure = units.Pressure{ .pa = units.Pa.init(8600e3) },
+        .condenserPressure = units.Pressure{ .pa = units.Pa.init(10e3) },
+        .pumpEfficiency = 0.75,
+        .turbineEfficiency = 0.75,
+        .powerRequirement = units.Power{ .w = units.W.init(80e3) },
+    };
+
+    const result = try rankineCycle(args);
+
+    try std.testing.expect(result.condenserSteamQuality >= 0.0);
+    try std.testing.expect(result.condenserSteamQuality <= 1.0);
+    try std.testing.expect(std.math.isFinite(result.thermalEfficiency));
+    try std.testing.expect(result.thermalEfficiency >= 0.0);
+    try std.testing.expect(result.thermalEfficiency <= 1.0);
+
+    const boiler_work = result.boilerWork.convertToSiUnit().value;
+    const turbine_work = result.turbineWork.convertToSiUnit().value;
+    const pump_work = result.pumpWork.convertToSiUnit().value;
+    const condenser_work = result.condenserWork.convertToSiUnit().value;
+    const net_work = result.netWork.convertToSiUnit().value;
+    const steam_rate = result.steamRate.convertToSiUnit().value;
+    const boiler_heat_rate = result.boilerHeatTransferRate.convertToSiUnit().value;
+    const condenser_heat_rate = result.condenserHeatTransferRate.convertToSiUnit().value;
+
+    try std.testing.expect(std.math.isFinite(boiler_work));
+    try std.testing.expect(std.math.isFinite(turbine_work));
+    try std.testing.expect(std.math.isFinite(pump_work));
+    try std.testing.expect(std.math.isFinite(condenser_work));
+    try std.testing.expect(std.math.isFinite(net_work));
+    try std.testing.expect(std.math.isFinite(steam_rate));
+    try std.testing.expect(std.math.isFinite(boiler_heat_rate));
+    try std.testing.expect(std.math.isFinite(condenser_heat_rate));
+
+    try std.testing.expect(steam_rate > 0.0);
+}
