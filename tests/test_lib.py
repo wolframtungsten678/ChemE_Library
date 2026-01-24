@@ -37,5 +37,18 @@ def test_getSteamEntryByPressureAndTemperature_bad_round_trip() -> None:
 def test_getSteamEntryByPressureAndTemperature_good_round_trip() -> None:
     result = getSteamEntryByPressureAndTemperature(40e6, 473.15)
     assert result.ok == True
-    assert result.pressure == 40e6
-    assert result.temperature == 473.15
+    assert result.err_code == 0
+    assert result.phase_kind == 2  # NonCritical
+    assert result.phase_region == 0  # Liquid
+    assert result.liquid_frac == 0
+    assert result.vapor_frac == 0
+
+    assert result.pressure == pytest.approx(40e6, abs=1e-6)
+    assert result.temperature == pytest.approx(473.15, abs=1e-6)
+    assert result.internal_energy == pytest.approx(825.228016170348e3, abs=1e-3)
+    assert result.enthalpy == pytest.approx(870.124259682489e3, abs=1e-3)
+    assert result.entropy == pytest.approx(2.275752861241e3, abs=1e-3)
+    assert result.cv == pytest.approx(3.292858637199e3, abs=1e-3)
+    assert result.cp == pytest.approx(4.315767590903e3, abs=1e-3)
+    assert result.speed_of_sound == pytest.approx(1457.418351596083, abs=1e-3)
+    assert result.specific_volume == pytest.approx(0.001122406088, abs=1e-9)
