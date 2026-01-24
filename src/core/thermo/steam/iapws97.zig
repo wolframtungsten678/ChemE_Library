@@ -22,7 +22,7 @@ const JPerKg = units.JPerKg;
 const MPerSec = units.MPerSec;
 const M3PerKg = units.M3PerKg;
 const WATER_GAS_CONSTANT = constants.WATER_GAS_CONSTANT;
-const SteamError = error{
+pub const SteamError = error{
     AboveCriticalTemperature,
     AboveCriticalPressure,
     BelowCriticalTemperature,
