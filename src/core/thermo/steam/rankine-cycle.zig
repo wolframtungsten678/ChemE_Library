@@ -2,12 +2,6 @@ const iapws97 = @import("iapws97.zig");
 const units = @import("../../units.zig");
 
 pub const RankineCycleArgs = struct {
-    // BoilerTemperature.Value = 500;
-    // BoilerPressure.Value = 8600e3;
-    // CondenserPressure.Value = 10e3;
-    // PumpEfficiency.Value = 0.75;
-    // TurbineEfficiency.Value = 0.75;
-    // PowerRequirement.Value = 80e3;
     boilerTemperature: units.Temperature,
     boilerPressure: units.Pressure,
     condenserPressure: units.Pressure,
@@ -24,6 +18,9 @@ pub const RankineCycleResult = struct {
     pumpWork: units.EnergyPerMass,
     condenserWork: units.EnergyPerMass,
     netWork: units.EnergyPerMass,
+    steamRate: units.MassFlowRate,
+    boilerHeatTransferRate: units.MassFlowRate,
+    condenserHeatTransferRate: units.MassFlowRate,
 };
 
 pub fn rankineCycle(args: RankineCycleArgs) !RankineCycleResult {
@@ -68,14 +65,15 @@ pub fn rankineCycle(args: RankineCycleArgs) !RankineCycleResult {
     const net_work = units.EnergyPerMass(units.JPerKg.init(net_work_raw));
     const thermal_efficiency = @abs(turbine_work_raw) / boiler_work_raw;
     const power_requirement_raw = args.powerRequirement.convertToSiUnit().value;
-    // TODO: make a mass flow rate unit
+
     const steam_rate_raw = power_requirement_raw / net_work_raw;
+    const steam_rate = units.MassFlowRate(units.KgPerSec.init(steam_rate_raw));
 
     const boiler_heat_transfer_rate_raw = steam_rate_raw * boiler_work_raw;
-    _ = boiler_heat_transfer_rate_raw;
+    const boiler_heat_transfer_rate = units.MassFlowRate(units.KgPerSec.init(boiler_heat_transfer_rate_raw));
 
     const condenser_heat_transfer_rate_raw = steam_rate_raw * condenser_work_raw;
-    _ = condenser_heat_transfer_rate_raw;
+    const condenser_heat_transfer_rate = units.MassFlowRate(units.KgPerSec.init(condenser_heat_transfer_rate_raw));
 
     return RankineCycleResult{
         .condenserSteamQuality = condenser_steam_quality,
@@ -85,5 +83,16 @@ pub fn rankineCycle(args: RankineCycleArgs) !RankineCycleResult {
         .netWork = net_work,
         .condenserWork = condenser_work,
         .pumpWork = pump_work,
+        .steamRate = steam_rate,
+        .boilerHeatTransferRate = boiler_heat_transfer_rate,
+        .condenserHeatTransferRate = condenser_heat_transfer_rate,
     };
 }
+
+// TODO: Add a test case for this:
+// BoilerTemperature.Value = 500;
+// BoilerPressure.Value = 8600e3;
+// CondenserPressure.Value = 10e3;
+// PumpEfficiency.Value = 0.75;
+// TurbineEfficiency.Value = 0.75;
+// PowerRequirement.Value = 80e3;

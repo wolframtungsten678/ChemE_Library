@@ -5,6 +5,7 @@ const length_mod = @import("units/length.zig");
 const area_mod = @import("units/area.zig");
 const volume_mod = @import("units/volume.zig");
 const volumetric_flow_mod = @import("units/volumetric_flow.zig");
+const mass_flow_rate_mod = @import("units/mass_flow_rate.zig");
 const mass_mod = @import("units/mass.zig");
 const temperature_mod = @import("units/temperature.zig");
 const pressure_mod = @import("units/pressure.zig");
@@ -66,6 +67,12 @@ pub const Ft3PerSec = volumetric_flow_mod.Ft3PerSec;
 pub const Ft3PerMin = volumetric_flow_mod.Ft3PerMin;
 pub const VolumetricFlowRate = volumetric_flow_mod.VolumetricFlowRate;
 
+pub const KgPerSec = mass_flow_rate_mod.KgPerSec;
+pub const KgPerMin = mass_flow_rate_mod.KgPerMin;
+pub const LbsmPerSec = mass_flow_rate_mod.LbsmPerSec;
+pub const LbsmPerMin = mass_flow_rate_mod.LbsmPerMin;
+pub const MassFlowRate = mass_flow_rate_mod.MassFlowRate;
+
 pub const Kg = mass_mod.Kg;
 pub const G = mass_mod.G;
 pub const Lbsm = mass_mod.Lbsm;
@@ -126,6 +133,18 @@ test "area conversion" {
     try std.testing.expectApproxEqAbs(1.0, one_m2.value, 1e-9);
     try std.testing.expectApproxEqAbs(1.0 / feet_per_meter_sq, one_ft2.value, 1e-6);
     try std.testing.expectApproxEqAbs(1.0 / inches_per_meter_sq, one_in2.value, 1e-6);
+}
+
+test "mass flow rate conversion" {
+    const one_kg_per_sec = (MassFlowRate{ .kg_per_sec = KgPerSec.init(1.0) }).convertToSiUnit();
+    const one_kg_per_min = (MassFlowRate{ .kg_per_min = KgPerMin.init(1.0) }).convertToSiUnit();
+    const one_lbsm_per_sec = (MassFlowRate{ .lbsm_per_sec = LbsmPerSec.init(1.0) }).convertToSiUnit();
+    const one_lbsm_per_min = (MassFlowRate{ .lbsm_per_min = LbsmPerMin.init(1.0) }).convertToSiUnit();
+
+    try std.testing.expectApproxEqAbs(1.0, one_kg_per_sec.value, 1e-9);
+    try std.testing.expectApproxEqAbs(1.0 / seconds_per_minute, one_kg_per_min.value, 1e-9);
+    try std.testing.expectApproxEqAbs(1.0 / pounds_mass_per_kilogram, one_lbsm_per_sec.value, 1e-9);
+    try std.testing.expectApproxEqAbs(1.0 / (pounds_mass_per_kilogram * seconds_per_minute), one_lbsm_per_min.value, 1e-9);
 }
 
 test "power conversion" {
