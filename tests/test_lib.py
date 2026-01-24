@@ -27,6 +27,15 @@ def test_add2_round_trip() -> None:
     assert add2(21, 21).result == 42
 
 
-def test_getSteamEntryByPressureAndTemperature_round_trip() -> None:
+def test_getSteamEntryByPressureAndTemperature_bad_round_trip() -> None:
     result = getSteamEntryByPressureAndTemperature(21, 21)
     assert result.ok == False
+    # to do convert err_code to enum
+    assert result.err_code == 148
+
+
+def test_getSteamEntryByPressureAndTemperature_good_round_trip() -> None:
+    result = getSteamEntryByPressureAndTemperature(40e6, 473.15)
+    assert result.ok == True
+    assert result.pressure == 40e6
+    assert result.temperature == 473.15

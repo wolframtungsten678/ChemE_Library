@@ -80,8 +80,19 @@ class SteamResult(ctypes.Structure):
     _fields_ = [
         ("ok", ctypes.c_bool),
         ("err_code", ctypes.c_int),
+        ("phase_kind", ctypes.c_int),
+        ("phase_region", ctypes.c_int),
+        ("liquid_frac", ctypes.c_double),
+        ("vapor_frac", ctypes.c_double),
         ("pressure", ctypes.c_double),
         ("temperature", ctypes.c_double),
+        ("internal_energy", ctypes.c_double),
+        ("enthalpy", ctypes.c_double),
+        ("entropy", ctypes.c_double),
+        ("cv", ctypes.c_double),
+        ("cp", ctypes.c_double),
+        ("speed_of_sound", ctypes.c_double),
+        ("specific_volume", ctypes.c_double),
     ]
 
 
