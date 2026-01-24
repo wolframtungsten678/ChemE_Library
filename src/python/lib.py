@@ -3,7 +3,7 @@ from __future__ import annotations
 import ctypes
 import os
 from collections.abc import Iterator
-from ctypes import c_int32
+from ctypes import c_int, c_int32
 from ctypes.util import find_library
 from pathlib import Path
 
@@ -59,7 +59,21 @@ _LIB.add.restype = c_int32
 
 def add(a: int, b: int) -> int:
     """Return the sum computed by the Zig implementation."""
-    return int(_LIB.add(c_int32(a), c_int32(b)))
+    return int(_LIB.add(c_int(a), c_int(b)))
 
 
-__all__ = ["add"]
+class AddResult(ctypes.Structure):
+    _fields_ = [("a", ctypes.c_int), ("b", ctypes.c_int), ("result", ctypes.c_int)]
+
+
+_LIB.add2.argtypes = (c_int32, c_int32)
+_LIB.add2.restype = AddResult
+
+
+def add2(a: int, b: int) -> AddResult:
+    """Return the sum computed by the Zig implementation."""
+    result = _LIB.add2(c_int32(a), c_int32(b))
+    return result
+
+
+__all__ = ["add", "add2"]

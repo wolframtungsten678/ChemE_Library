@@ -8,3 +8,21 @@ test {
     _ = units;
     _ = iapws97;
 }
+
+export fn add(a: c_int, b: c_int) c_int {
+    return a + b;
+}
+
+const Add2 = extern struct {
+    a: c_int,
+    b: c_int,
+    result: c_int,
+};
+
+export fn add2(a: c_int, b: c_int) Add2 {
+    return .{
+        .a = a,
+        .b = b,
+        .result = a + b,
+    };
+}
