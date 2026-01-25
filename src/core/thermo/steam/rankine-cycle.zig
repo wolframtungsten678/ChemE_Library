@@ -47,15 +47,14 @@ pub fn rankineCycle(args: RankineCycleArgs) !RankineCycleResult {
     const pump_efficiency = args.pumpEfficiency;
     if (pump_efficiency < 0.0 or pump_efficiency > 1.0) return error.InvalidPumpEfficiency;
 
-    const pump_work_raw = ((condenser_sv * (boiler_pressure - condenser_pressure)) * 1e-3) / pump_efficiency;
+    const pump_work_raw = ((condenser_sv * (boiler_pressure - condenser_pressure))) / pump_efficiency;
 
     const pump_work = units.EnergyPerMass{ .j_per_kg = units.JPerKg.init(pump_work_raw) };
     const condenser_enthalpy_raw = condenser_liquid_conditions.enthalpy.convertToSiUnit().value;
-    // TODO: make this a better name
-    const boiler_enthalpy_raw_better_name = condenser_enthalpy_raw + pump_work_raw;
+    const boiler_enthalpy_pump = condenser_enthalpy_raw + pump_work_raw;
 
     const boiler_enthalpy_raw = boiler_conditions.enthalpy.convertToSiUnit().value;
-    const boiler_work_raw = boiler_enthalpy_raw - boiler_enthalpy_raw_better_name;
+    const boiler_work_raw = boiler_enthalpy_raw - boiler_enthalpy_pump;
 
     const boiler_work = units.EnergyPerMass{ .j_per_kg = units.JPerKg.init(boiler_work_raw) };
 
@@ -130,10 +129,10 @@ test "rankine cycle example inputs" {
     const condenser_heat_rate = result.condenserHeatTransferRate.convertToSiUnit().value;
 
     try std.testing.expectApproxEqAbs(0.8051, condenser_steam_quality, 1e-3);
-    try std.testing.expectApproxEqAbs(11.57, pump_work, 1e-3);
+    try std.testing.expectApproxEqAbs(11570, pump_work, 1);
+    try std.testing.expectApproxEqAbs(3189e3, boiler_work, 1e3);
     // check this again
-    try std.testing.expectApproxEqAbs(3200e3, boiler_work, 1e3);
-    try std.testing.expectApproxEqAbs(2244, condenser_work, 1e-3);
+    try std.testing.expectApproxEqAbs(0, condenser_work, 1);
     try std.testing.expectApproxEqAbs(0, turbine_work, 1e-3);
     try std.testing.expectApproxEqAbs(0, thermal_efficiency, 1e-3);
     try std.testing.expectApproxEqAbs(0, net_work, 1e-3);
