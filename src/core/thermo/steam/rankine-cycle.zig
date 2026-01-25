@@ -26,12 +26,18 @@ pub const RankineCycleResult = struct {
 
 pub fn rankineCycle(args: RankineCycleArgs) !RankineCycleResult {
     const boiler_conditions = try iapws97.getSteamEntryByPressureAndTemperature(args.boilerPressure, args.boilerTemperature);
+    std.debug.print("{any}\n", .{boiler_conditions.temperature});
+    std.debug.print("{any}\n", .{boiler_conditions.pressure});
+    std.debug.print("{any}\n", .{boiler_conditions.enthalpy});
     const condenser_liquid_conditions = try iapws97.getSteamEntryBySatPressure(iapws97.SteamNonCriticalPhaseRegion.Liquid, args.condenserPressure);
+    std.debug.print("{any}\n", .{condenser_liquid_conditions.enthalpy});
 
-    const condenser_conditions = try iapws97.getSteamEntryByPressureAndEntropy(boiler_conditions.pressure, boiler_conditions.entropy);
+    const condenser_conditions = try iapws97.getSteamEntryByPressureAndEntropy(condenser_liquid_conditions.pressure, boiler_conditions.entropy);
+    std.debug.print("{any}\n", .{condenser_conditions.enthalpy});
 
     const condenser_steam_quality = switch (condenser_conditions.phase_region) {
         .Composite => |composite| composite.liquid_vapor.vapor_frac,
+        // TODO: make this a more appropriate error
         else => return iapws97.SteamError.InvalidPhaseFractions,
     };
 
@@ -99,39 +105,39 @@ pub fn rankineCycle(args: RankineCycleArgs) !RankineCycleResult {
 // PowerRequirement.Value = 80e3;
 test "rankine cycle example inputs" {
     const args = RankineCycleArgs{
-        .boilerTemperature = units.Temperature{ .k = units.K.init(500.0) },
+        // TODO: Something like this should not compile
+        // .c and K should not work together
+        // .boilerTemperature = units.Temperature{ .c = units.K.init(500.0) },
+        .boilerTemperature = units.Temperature{ .c = units.C.init(500.0) },
         .boilerPressure = units.Pressure{ .pa = units.Pa.init(8600e3) },
         .condenserPressure = units.Pressure{ .pa = units.Pa.init(10e3) },
         .pumpEfficiency = 0.75,
         .turbineEfficiency = 0.75,
-        .powerRequirement = units.Power{ .w = units.W.init(80e3) },
+        .powerRequirement = units.Power{ .w = units.kW.init(80e3) },
     };
 
     const result = try rankineCycle(args);
 
-    try std.testing.expect(result.condenserSteamQuality >= 0.0);
-    try std.testing.expect(result.condenserSteamQuality <= 1.0);
-    try std.testing.expect(std.math.isFinite(result.thermalEfficiency));
-    try std.testing.expect(result.thermalEfficiency >= 0.0);
-    try std.testing.expect(result.thermalEfficiency <= 1.0);
-
-    const boiler_work = result.boilerWork.convertToSiUnit().value;
-    const turbine_work = result.turbineWork.convertToSiUnit().value;
+    const condenser_steam_quality = result.condenserSteamQuality;
     const pump_work = result.pumpWork.convertToSiUnit().value;
+    const boiler_work = result.boilerWork.convertToSiUnit().value;
     const condenser_work = result.condenserWork.convertToSiUnit().value;
+    const turbine_work = result.turbineWork.convertToSiUnit().value;
+    const thermal_efficiency = result.thermalEfficiency;
     const net_work = result.netWork.convertToSiUnit().value;
     const steam_rate = result.steamRate.convertToSiUnit().value;
     const boiler_heat_rate = result.boilerHeatTransferRate.convertToSiUnit().value;
     const condenser_heat_rate = result.condenserHeatTransferRate.convertToSiUnit().value;
 
-    try std.testing.expect(std.math.isFinite(boiler_work));
-    try std.testing.expect(std.math.isFinite(turbine_work));
-    try std.testing.expect(std.math.isFinite(pump_work));
-    try std.testing.expect(std.math.isFinite(condenser_work));
-    try std.testing.expect(std.math.isFinite(net_work));
-    try std.testing.expect(std.math.isFinite(steam_rate));
-    try std.testing.expect(std.math.isFinite(boiler_heat_rate));
-    try std.testing.expect(std.math.isFinite(condenser_heat_rate));
-
-    try std.testing.expect(steam_rate > 0.0);
+    try std.testing.expectApproxEqAbs(0.8051, condenser_steam_quality, 1e-3);
+    try std.testing.expectApproxEqAbs(11.57, pump_work, 1e-3);
+    // check this again
+    try std.testing.expectApproxEqAbs(3200e3, boiler_work, 1e3);
+    try std.testing.expectApproxEqAbs(2244, condenser_work, 1e-3);
+    try std.testing.expectApproxEqAbs(0, turbine_work, 1e-3);
+    try std.testing.expectApproxEqAbs(0, thermal_efficiency, 1e-3);
+    try std.testing.expectApproxEqAbs(0, net_work, 1e-3);
+    try std.testing.expectApproxEqAbs(0, steam_rate, 1e-3);
+    try std.testing.expectApproxEqAbs(0, boiler_heat_rate, 1e-3);
+    try std.testing.expectApproxEqAbs(0, condenser_heat_rate, 1e-3);
 }
